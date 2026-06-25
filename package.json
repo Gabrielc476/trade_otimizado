@@ -6,7 +6,11 @@
   "scripts": {
     "test": "jest",
     "test:cov": "jest --coverage",
-    "benchmark": "npx ts-node src/benchmarks/engine.benchmark.ts"
+    "benchmark": "npx ts-node src/benchmarks/engine.benchmark.ts",
+    "dev:frontend": "npm run dev --prefix src/frontend",
+    "build:frontend": "npm run build --prefix src/frontend",
+    "start:frontend": "npm start --prefix src/frontend",
+    "lint:frontend": "npm run lint --prefix src/frontend"
   },
   "repository": {
     "type": "git",
