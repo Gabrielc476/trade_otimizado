@@ -8,11 +8,15 @@ import { JournalingPort } from '../../application/ports/JournalingPort';
 import { EventPublisherPort } from '../../application/ports/EventPublisherPort';
 import { PlaceOrderUseCase } from '../../application/usecases/PlaceOrderUseCase';
 import { CancelOrderUseCase } from '../../application/usecases/CancelOrderUseCase';
+import { DepositUseCase } from '../../application/usecases/DepositUseCase';
+import { WithdrawUseCase } from '../../application/usecases/WithdrawUseCase';
 import { MatchEngineLoopUseCase, EngineEvent } from '../../application/usecases/MatchEngineLoopUseCase';
 
 class MockJournalingPort implements JournalingPort {
   writeEntry(): void {}
   writeCancelEntry(): void {}
+  writeDepositEntry(): void {}
+  writeWithdrawEntry(): void {}
 }
 
 class MockEventPublisherPort implements EventPublisherPort {
@@ -37,7 +41,9 @@ describe('MatchEngineLoopUseCase', () => {
     const eventPublisherPort = new MockEventPublisherPort();
     placeUseCase = new PlaceOrderUseCase(engine, journalingPort, eventPublisherPort);
     cancelUseCase = new CancelOrderUseCase(engine, journalingPort, eventPublisherPort);
-    loopUseCase = new MatchEngineLoopUseCase(placeUseCase, cancelUseCase);
+    const depositUseCase = new DepositUseCase(wallet);
+    const withdrawUseCase = new WithdrawUseCase(wallet);
+    loopUseCase = new MatchEngineLoopUseCase(placeUseCase, cancelUseCase, depositUseCase, withdrawUseCase);
 
     // Provide initial funds
     wallet.credit(1, 'USDT', 100000n * SCALE); // Buyer: 100,000 USDT

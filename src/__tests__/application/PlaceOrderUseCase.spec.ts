@@ -26,6 +26,9 @@ class MockJournalingPort implements JournalingPort {
   writeCancelEntry(orderId: number): void {
     this.cancelEntries.push(orderId);
   }
+
+  writeDepositEntry(userId: number, asset: string, amount: bigint): void {}
+  writeWithdrawEntry(userId: number, asset: string, amount: bigint): void {}
 }
 
 class MockEventPublisherPort implements EventPublisherPort {

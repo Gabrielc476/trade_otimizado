@@ -5,6 +5,8 @@ import { JournalingPort } from '../ports/JournalingPort';
 import { EventPublisherPort } from '../ports/EventPublisherPort';
 import { PlaceOrderUseCase } from '../usecases/PlaceOrderUseCase';
 import { CancelOrderUseCase } from '../usecases/CancelOrderUseCase';
+import { DepositUseCase } from '../usecases/DepositUseCase';
+import { WithdrawUseCase } from '../usecases/WithdrawUseCase';
 import { MatchEngineLoopUseCase } from '../usecases/MatchEngineLoopUseCase';
 
 export class StaticFactory {
@@ -20,12 +22,21 @@ export class StaticFactory {
     const engine = new MatchingEngine(symbol, baseAsset, quoteAsset, wallet, pool);
     const placeOrderUseCase = new PlaceOrderUseCase(engine, journalingPort, eventPublisherPort);
     const cancelOrderUseCase = new CancelOrderUseCase(engine, journalingPort, eventPublisherPort);
-    const loopUseCase = new MatchEngineLoopUseCase(placeOrderUseCase, cancelOrderUseCase);
+    const depositUseCase = new DepositUseCase(wallet);
+    const withdrawUseCase = new WithdrawUseCase(wallet);
+    const loopUseCase = new MatchEngineLoopUseCase(
+      placeOrderUseCase,
+      cancelOrderUseCase,
+      depositUseCase,
+      withdrawUseCase
+    );
 
     return {
       engine,
       placeOrderUseCase,
       cancelOrderUseCase,
+      depositUseCase,
+      withdrawUseCase,
       loopUseCase,
     };
   }

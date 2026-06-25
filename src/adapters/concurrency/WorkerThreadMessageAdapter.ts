@@ -31,6 +31,22 @@ export class WorkerThreadMessageAdapter {
           orderId: msg.orderId,
         };
         this.loopUseCase.enqueue(event);
+      } else if (msg.type === 'DEPOSIT') {
+        const event: EngineEvent = {
+          type: 'DEPOSIT',
+          userId: msg.userId,
+          asset: msg.asset,
+          amount: msg.amount,
+        };
+        this.loopUseCase.enqueue(event);
+      } else if (msg.type === 'WITHDRAW') {
+        const event: EngineEvent = {
+          type: 'WITHDRAW',
+          userId: msg.userId,
+          asset: msg.asset,
+          amount: msg.amount,
+        };
+        this.loopUseCase.enqueue(event);
       }
     });
   }

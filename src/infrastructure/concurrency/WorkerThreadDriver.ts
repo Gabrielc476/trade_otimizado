@@ -8,7 +8,7 @@ export class WorkerThreadDriver {
   private sab: SharedArrayBuffer;
   private eventListeners: ((message: any) => void)[] = [];
 
-  constructor(assets: string[]) {
+  constructor(assets: string[], walPath?: string) {
     // 10,000 users * 2 assets * 2 balances (available, locked) * 8 bytes = 320,000 bytes
     this.sab = new SharedArrayBuffer(320000);
     
@@ -22,6 +22,7 @@ export class WorkerThreadDriver {
       workerData: {
         sab: this.sab,
         assets,
+        walPath,
       },
       execArgv: isTsNode ? ['-r', 'ts-node/register'] : [],
     });
@@ -64,6 +65,24 @@ export class WorkerThreadDriver {
     this.worker.postMessage({
       type: 'CANCEL_ORDER',
       orderId,
+    });
+  }
+
+  public sendDeposit(userId: number, asset: string, amount: bigint): void {
+    this.worker.postMessage({
+      type: 'DEPOSIT',
+      userId,
+      asset,
+      amount,
+    });
+  }
+
+  public sendWithdraw(userId: number, asset: string, amount: bigint): void {
+    this.worker.postMessage({
+      type: 'WITHDRAW',
+      userId,
+      asset,
+      amount,
     });
   }
 

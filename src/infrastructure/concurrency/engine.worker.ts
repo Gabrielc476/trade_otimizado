@@ -7,12 +7,14 @@ import { JournalingPort } from '../../application/ports/JournalingPort';
 import { WorkerThreadMessageAdapter } from '../../adapters/concurrency/WorkerThreadMessageAdapter';
 import { OrderSide } from '../../domain/enums/OrderSide';
 import { OrderType } from '../../domain/enums/OrderType';
+import { SwitchableEventPublisherPort, SwitchableJournalingPort } from './SwitchablePorts';
+import { BinaryWALJournalAdapter } from '../../adapters/journaling/BinaryWALJournalAdapter';
 
 if (!parentPort) {
   throw new Error('engine.worker.ts must be run as a Worker Thread');
 }
 
-const { sab, assets } = workerData;
+const { sab, assets, walPath } = workerData;
 
 // Create the Wallet using the SharedArrayBuffer
 const wallet = new Wallet(sab, assets);
@@ -95,14 +97,31 @@ class WorkerJournalingPort implements JournalingPort {
       orderId,
     });
   }
+
+  public writeDepositEntry(userId: number, asset: string, amount: bigint): void {
+    // Deposits are logged by the main thread before sending, no-op in worker
+  }
+
+  public writeWithdrawEntry(userId: number, asset: string, amount: bigint): void {
+    // Withdrawals are logged by the main thread before sending, no-op in worker
+  }
 }
 
-const eventPublisher = new WorkerEventPublisher();
-const journalingPort = new WorkerJournalingPort();
+const rawEventPublisher = new WorkerEventPublisher();
+const rawJournalingPort = new WorkerJournalingPort();
+
+const eventPublisher = new SwitchableEventPublisherPort(rawEventPublisher);
+const journalingPort = new SwitchableJournalingPort(rawJournalingPort);
 
 // Create the MatchingEngine and Use Cases via StaticFactory
 const symbol = `${assets[0]}/${assets[1]}`;
-const { loopUseCase } = StaticFactory.createEngine(
+const {
+  placeOrderUseCase,
+  cancelOrderUseCase,
+  depositUseCase,
+  withdrawUseCase,
+  loopUseCase
+} = StaticFactory.createEngine(
   symbol,
   assets[0],
   assets[1],
@@ -111,6 +130,40 @@ const { loopUseCase } = StaticFactory.createEngine(
   journalingPort,
   eventPublisher
 );
+
+// Perform WAL Crash Recovery if a WAL file is specified and exists
+if (walPath) {
+  eventPublisher.setEnabled(false);
+  journalingPort.setEnabled(false);
+
+  try {
+    const recoveredEvents = BinaryWALJournalAdapter.readWAL(walPath);
+    for (let i = 0; i < recoveredEvents.length; i++) {
+      const event = recoveredEvents[i];
+      if (event.type === 'PLACE_ORDER') {
+        placeOrderUseCase.execute(
+          event.orderId,
+          event.userId,
+          event.side,
+          event.orderType,
+          event.price,
+          event.qty
+        );
+      } else if (event.type === 'CANCEL_ORDER') {
+        cancelOrderUseCase.execute(event.orderId);
+      } else if (event.type === 'DEPOSIT') {
+        depositUseCase.execute(event.userId, event.asset, event.amount);
+      } else if (event.type === 'WITHDRAW') {
+        withdrawUseCase.execute(event.userId, event.asset, event.amount);
+      }
+    }
+  } catch (err) {
+    console.error('Error during WAL crash recovery in worker thread:', err);
+  }
+
+  eventPublisher.setEnabled(true);
+  journalingPort.setEnabled(true);
+}
 
 // Start the message adapter to listen for messages from the parent thread
 const messageAdapter = new WorkerThreadMessageAdapter(loopUseCase);

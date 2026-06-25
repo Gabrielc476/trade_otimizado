@@ -3,29 +3,40 @@ import { OrderType } from '../../domain/enums/OrderType';
 import { PlaceOrderUseCase } from './PlaceOrderUseCase';
 import { CancelOrderUseCase } from './CancelOrderUseCase';
 
+import { DepositUseCase } from './DepositUseCase';
+import { WithdrawUseCase } from './WithdrawUseCase';
+
 export interface EngineEvent {
-  type: 'PLACE_ORDER' | 'CANCEL_ORDER';
-  orderId: number;
+  type: 'PLACE_ORDER' | 'CANCEL_ORDER' | 'DEPOSIT' | 'WITHDRAW';
+  orderId?: number;
   userId?: number;
   side?: OrderSide;
   orderType?: OrderType;
   price?: bigint;
   qty?: bigint;
+  asset?: string;
+  amount?: bigint;
 }
 
 export class MatchEngineLoopUseCase {
   private queue: EngineEvent[];
   private placeOrderUseCase: PlaceOrderUseCase;
   private cancelOrderUseCase: CancelOrderUseCase;
+  private depositUseCase: DepositUseCase;
+  private withdrawUseCase: WithdrawUseCase;
   private isProcessing: boolean;
 
   constructor(
     placeOrderUseCase: PlaceOrderUseCase,
-    cancelOrderUseCase: CancelOrderUseCase
+    cancelOrderUseCase: CancelOrderUseCase,
+    depositUseCase: DepositUseCase,
+    withdrawUseCase: WithdrawUseCase
   ) {
     this.queue = [];
     this.placeOrderUseCase = placeOrderUseCase;
     this.cancelOrderUseCase = cancelOrderUseCase;
+    this.depositUseCase = depositUseCase;
+    this.withdrawUseCase = withdrawUseCase;
     this.isProcessing = false;
   }
 
@@ -52,7 +63,7 @@ export class MatchEngineLoopUseCase {
   private processEvent(event: EngineEvent): void {
     if (event.type === 'PLACE_ORDER') {
       this.placeOrderUseCase.execute(
-        event.orderId,
+        event.orderId!,
         event.userId!,
         event.side!,
         event.orderType!,
@@ -60,7 +71,11 @@ export class MatchEngineLoopUseCase {
         event.qty!
       );
     } else if (event.type === 'CANCEL_ORDER') {
-      this.cancelOrderUseCase.execute(event.orderId);
+      this.cancelOrderUseCase.execute(event.orderId!);
+    } else if (event.type === 'DEPOSIT') {
+      this.depositUseCase.execute(event.userId!, event.asset!, event.amount!);
+    } else if (event.type === 'WITHDRAW') {
+      this.withdrawUseCase.execute(event.userId!, event.asset!, event.amount!);
     }
   }
 

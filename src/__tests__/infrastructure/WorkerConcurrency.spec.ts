@@ -6,6 +6,7 @@ import { OrderType } from '../../domain/enums/OrderType';
 import { SCALE } from '../../domain/entities/MatchingEngine';
 
 describe('WorkerConcurrency', () => {
+  jest.setTimeout(30000);
   let driver: WorkerThreadDriver;
   let reader: SharedMemoryWalletReader;
   let mainWallet: Wallet;

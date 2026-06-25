@@ -7,6 +7,8 @@ import { EventPublisherPort } from '../../application/ports/EventPublisherPort';
 class MockJournalingPort implements JournalingPort {
   writeEntry(): void {}
   writeCancelEntry(): void {}
+  writeDepositEntry(): void {}
+  writeWithdrawEntry(): void {}
 }
 
 class MockEventPublisherPort implements EventPublisherPort {
@@ -35,6 +37,8 @@ describe('StaticFactory', () => {
     expect(result.engine).toBeDefined();
     expect(result.placeOrderUseCase).toBeDefined();
     expect(result.cancelOrderUseCase).toBeDefined();
+    expect(result.depositUseCase).toBeDefined();
+    expect(result.withdrawUseCase).toBeDefined();
     expect(result.loopUseCase).toBeDefined();
 
     // Verify properties are injected and matching the types

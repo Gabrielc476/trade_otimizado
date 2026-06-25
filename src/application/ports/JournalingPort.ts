@@ -11,4 +11,6 @@ export interface JournalingPort {
     qty: bigint
   ): void;
   writeCancelEntry(orderId: number): void;
+  writeDepositEntry(userId: number, asset: string, amount: bigint): void;
+  writeWithdrawEntry(userId: number, asset: string, amount: bigint): void;
 }
