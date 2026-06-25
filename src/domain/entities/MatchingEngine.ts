@@ -87,25 +87,7 @@ export class MatchingEngine {
           sellOrder.filledQty += matchQty;
 
           const tradePrice = sellOrder.price;
-          const tradeValue = (tradePrice * matchQty) / SCALE;
-
-          // Atualizações financeiras
-          // 1. Debita do vendedor o ativo base (que estava bloqueado)
-          this.wallet.debitLocked(sellOrder.userId, this.baseAsset, matchQty);
-          // 2. Debita do comprador o ativo de cotação correspondente ao valor real (tradeValue)
-          const buyerLockedDebit = (buyOrder.price * matchQty) / SCALE;
-          this.wallet.debitLocked(buyOrder.userId, this.quoteAsset, tradeValue);
-          // 3. Reembolsa a diferença de preço para o comprador (desbloqueia o valor excedente)
-          if (buyOrder.price > tradePrice) {
-            const refund = buyerLockedDebit - tradeValue;
-            if (refund > 0n) {
-              this.wallet.unlock(buyOrder.userId, this.quoteAsset, refund);
-            }
-          }
-          // 4. Credita o ativo base para o comprador
-          this.wallet.credit(buyOrder.userId, this.baseAsset, matchQty);
-          // 5. Credita o ativo de cotação para o vendedor
-          this.wallet.credit(sellOrder.userId, this.quoteAsset, tradeValue);
+          this.executeTrade(buyOrder.userId, sellOrder.userId, tradePrice, matchQty, buyOrder.price);
 
           trades.push({
             buyerId: buyOrder.userId,
@@ -176,17 +158,7 @@ export class MatchingEngine {
           buyOrder.filledQty += matchQty;
 
           const tradePrice = buyOrder.price;
-          const tradeValue = (tradePrice * matchQty) / SCALE;
-
-          // Atualizações financeiras
-          // 1. Debita do comprador o ativo de cotação (que estava bloqueado)
-          this.wallet.debitLocked(buyOrder.userId, this.quoteAsset, tradeValue);
-          // 2. Debita do vendedor o ativo base (que estava bloqueado)
-          this.wallet.debitLocked(sellOrder.userId, this.baseAsset, matchQty);
-          // 3. Credita o ativo base para o comprador
-          this.wallet.credit(buyOrder.userId, this.baseAsset, matchQty);
-          // 4. Credita o ativo de cotação para o vendedor
-          this.wallet.credit(sellOrder.userId, this.quoteAsset, tradeValue);
+          this.executeTrade(buyOrder.userId, sellOrder.userId, tradePrice, matchQty, buyOrder.price);
 
           trades.push({
             buyerId: buyOrder.userId,
@@ -231,5 +203,32 @@ export class MatchingEngine {
     }
 
     return [ErrorCode.SUCCESS, trades];
+  }
+
+  private executeTrade(
+    buyerId: number,
+    sellerId: number,
+    tradePrice: bigint,
+    matchQty: bigint,
+    buyPriceCap: bigint
+  ): void {
+    const tradeValue = (tradePrice * matchQty) / SCALE;
+
+    // 1. Debita do comprador o ativo de cotação correspondente ao valor real (tradeValue)
+    this.wallet.debitLocked(buyerId, this.quoteAsset, tradeValue);
+    // 2. Debita do vendedor o ativo base (que estava bloqueado)
+    this.wallet.debitLocked(sellerId, this.baseAsset, matchQty);
+    // 3. Reembolsa a diferença de preço para o comprador (desbloqueia o valor excedente)
+    if (buyPriceCap > tradePrice) {
+      const buyerLockedDebit = (buyPriceCap * matchQty) / SCALE;
+      const refund = buyerLockedDebit - tradeValue;
+      if (refund > 0n) {
+        this.wallet.unlock(buyerId, this.quoteAsset, refund);
+      }
+    }
+    // 4. Credita o ativo base para o comprador
+    this.wallet.credit(buyerId, this.baseAsset, matchQty);
+    // 5. Credita o ativo de cotação para o vendedor
+    this.wallet.credit(sellerId, this.quoteAsset, tradeValue);
   }
 }
