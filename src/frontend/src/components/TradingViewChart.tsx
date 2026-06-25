@@ -138,7 +138,7 @@ export const TradingViewChart: React.FC = () => {
   }, []);
 
   return (
-    <div className="bg-zinc-950/40 border border-zinc-800/40 backdrop-blur-md rounded-xl p-4 flex flex-col gap-2 shadow-xl">
+    <div className="bg-zinc-950/20 border border-zinc-900/35 backdrop-blur-sm rounded-xl p-4 flex flex-col gap-2 shadow-xl">
       <div className="flex items-center justify-between text-zinc-400 text-[10px] font-mono tracking-wider mb-2">
         <div className="flex items-center gap-2">
           <LineChart className="h-3.5 w-3.5 text-zinc-500" />

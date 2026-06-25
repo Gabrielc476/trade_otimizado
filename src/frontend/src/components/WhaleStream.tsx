@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
+import { Html } from "@react-three/drei";
 import { useStore, TradeEvent } from "../store/useStore";
 import { GRID_VERTEX_SHADER, GRID_FRAGMENT_SHADER, PARTICLE_VERTEX_SHADER, PARTICLE_FRAGMENT_SHADER } from "./shaders/reactorShaders";
 
@@ -33,6 +34,11 @@ export const WhaleStream: React.FC = () => {
     life: 0,
     maxLife: 0,
   })));
+
+  // Refs de controle de DOM para o Alerta de Baleia em 3D
+  const whaleAlertRef = useRef<HTMLDivElement>(null);
+  const whaleTextRef = useRef<HTMLSpanElement>(null);
+  const whaleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Subscrição para novos trades
   useEffect(() => {
@@ -68,19 +74,41 @@ export const WhaleStream: React.FC = () => {
 
         // Dispara rajada massiva de partículas violetas
         triggerParticlesBurst(latestTrade, true);
+
+        // 2. Exibe o alerta holográfico 3D flutuante do Whale Trade no topo do canvas
+        if (whaleAlertRef.current && whaleTextRef.current) {
+          if (whaleTimeoutRef.current) clearTimeout(whaleTimeoutRef.current);
+          
+          whaleTextRef.current.innerText = `WHALE_BLOCK_TRADE: ${latestTrade.quantity.toFixed(4)} BTC @ $${latestTrade.price.toLocaleString("en-US")} USD`;
+          
+          // Fade-in e deslizamento
+          whaleAlertRef.current.style.opacity = "1";
+          whaleAlertRef.current.style.transform = "translateY(0)";
+          
+          // Agenda o fade-out após 2.5 segundos (tempo de duração da onda física de choque)
+          whaleTimeoutRef.current = setTimeout(() => {
+            if (whaleAlertRef.current) {
+              whaleAlertRef.current.style.opacity = "0";
+              whaleAlertRef.current.style.transform = "translateY(-12px)";
+            }
+          }, 2500);
+        }
       } else {
         // Dispara partículas padrão (verdes ou vermelhas)
         triggerParticlesBurst(latestTrade, false);
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (whaleTimeoutRef.current) clearTimeout(whaleTimeoutRef.current);
+    };
   }, []);
 
   // Função auxiliar para ativar partículas inativas
   const triggerParticlesBurst = (trade: TradeEvent, isWhale: boolean) => {
     const data = particlesData.current;
-    const count = isWhale ? 40 : 5; // Mais partículas para baleias
+    const count = isWhale ? 45 : 6; // Quantidade de partículas
     let activated = 0;
 
     for (let i = 0; i < MAX_PARTICLES; i++) {
@@ -96,18 +124,18 @@ export const WhaleStream: React.FC = () => {
         );
 
         // Velocidade: Esquerda (-X) com variação de dispersão
-        const speed = isWhale ? 4.0 + Math.random() * 5.0 : 1.5 + Math.random() * 2.0;
-        p.vel.set(-speed, (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.2);
+        const speed = isWhale ? 4.5 + Math.random() * 5.5 : 1.8 + Math.random() * 2.2;
+        p.vel.set(-speed, (Math.random() - 0.5) * 0.5, (Math.random() - 0.5) * 0.2);
 
         // Tamanho e Cor
-        p.size = isWhale ? 0.3 + Math.random() * 0.3 : 0.08 + Math.random() * 0.12;
+        p.size = isWhale ? 0.35 + Math.random() * 0.35 : 0.08 + Math.random() * 0.14;
         
         if (isWhale) {
           p.color.setRGB(0.55, 0.05, 1.0); // Violeta elétrico
         } else if (trade.side === 0) {
-          p.color.setRGB(0.02, 0.9, 0.5);  // Verde compra
+          p.color.setRGB(0.01, 0.95, 0.45); // Verde compra
         } else {
-          p.color.setRGB(1.0, 0.02, 0.38); // Vermelho venda
+          p.color.setRGB(1.0, 0.01, 0.35);  // Vermelho venda
         }
 
         p.maxLife = isWhale ? 2.5 + Math.random() * 1.5 : 4.0 + Math.random() * 2.0;
@@ -152,16 +180,13 @@ export const WhaleStream: React.FC = () => {
         const idx = i * 3;
 
         if (p.life > 0) {
-          // Move partícula
           p.pos.addScaledVector(p.vel, delta);
           p.life -= delta;
 
-          // Escreve atributos de volta na geometria da GPU
           positions[idx] = p.pos.x;
           positions[idx + 1] = p.pos.y;
           positions[idx + 2] = p.pos.z;
 
-          // Efeito de fade out no fim da vida útil
           const alpha = p.life / p.maxLife;
           colors[idx] = p.color.r * alpha;
           colors[idx + 1] = p.color.g * alpha;
@@ -169,7 +194,6 @@ export const WhaleStream: React.FC = () => {
 
           sizes[i] = p.size * (0.3 + alpha * 0.7);
         } else {
-          // Partícula inativa (esconde sob a tela)
           p.pos.set(0, -999, 0);
           positions[idx] = 0;
           positions[idx + 1] = -999;
@@ -178,21 +202,18 @@ export const WhaleStream: React.FC = () => {
         }
       }
 
-      // Notifica o Three.js para subir os dados modificados para a GPU
       geometry.attributes.position.needsUpdate = true;
       geometry.attributes.color.needsUpdate = true;
       geometry.attributes.size.needsUpdate = true;
     }
   });
 
-  // Configuração inicial das variáveis uniformes do grid
   const gridUniforms = useRef({
     uTime: { value: 0 },
     uShockwaves: { value: [new THREE.Vector2(), new THREE.Vector2(), new THREE.Vector2()] },
     uShockwaveTimes: { value: [-1, -1, -1] },
   });
 
-  // Inicializa arrays estruturados planos para a geometria das partículas
   const initialPositions = useRef(new Float32Array(MAX_PARTICLES * 3));
   const initialColors = useRef(new Float32Array(MAX_PARTICLES * 3));
   const initialSizes = useRef(new Float32Array(MAX_PARTICLES));
@@ -238,6 +259,29 @@ export const WhaleStream: React.FC = () => {
           fragmentShader={PARTICLE_FRAGMENT_SHADER}
         />
       </points>
+
+      {/* 3. Alerta Holográfico Flutuante 3D de Transações Massivas (Whale Trade Alert) */}
+      <Html
+        position={[0, 3.2, 0]}
+        center
+        distanceFactor={6}
+        className="pointer-events-none select-none"
+      >
+        <div
+          ref={whaleAlertRef}
+          style={{
+            opacity: 0,
+            transform: "translateY(-12px)",
+            transition: "all 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+          }}
+          className="flex items-center gap-2.5 bg-rose-950/90 border border-rose-500/65 backdrop-blur-md rounded-lg p-2.5 px-5 shadow-[0_0_30px_rgba(244,63,94,0.4)] min-w-[260px] justify-center text-center font-mono text-[9px] text-rose-400 border-t-2 border-t-rose-400"
+        >
+          <span className="h-2 w-2 rounded-full bg-rose-500 animate-ping shrink-0" />
+          <span ref={whaleTextRef} className="font-bold tracking-wider">
+            WHALE_BLOCK_TRADE: 0.0000 BTC @ $0.00 USD
+          </span>
+        </div>
+      </Html>
     </group>
   );
 };
