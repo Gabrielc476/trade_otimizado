@@ -8,9 +8,9 @@ Este documento atua como o painel central de rastreamento de progresso do **Apex
 
 | ID | Nome da Track | Status | Prioridade | Link do Plano |
 | :--- | :--- | :--- | :--- | :--- |
-| **01** | Domínio Puro & Algoritmo (Core Engine) | **[ ] Planejado** | Alta | [01_core_engine/plan.md](file:///c:/projetos/ordem%20de%20pagamentos/conductor/tracks/01_core_engine/plan.md) |
-| **02** | Regras da Aplicação & Portas (Use Cases) | **[ ] Planejado** | Alta | [02_use_cases/plan.md](file:///c:/projetos/ordem%20de%20pagamentos/conductor/tracks/02_use_cases/plan.md) |
-| **03** | Adaptadores & Concorrência (Multithread / SAB) | **[ ] Planejado** | Alta | [03_concurrency/plan.md](file:///c:/projetos/ordem%20de%20pagamentos/conductor/tracks/03_concurrency/plan.md) |
+| **01** | Domínio Puro & Algoritmo (Core Engine) | **[x] Concluído** | Alta | [01_core_engine/plan.md](file:///c:/projetos/ordem%20de%20pagamentos/conductor/tracks/01_core_engine/plan.md) |
+| **02** | Regras da Aplicação & Portas (Use Cases) | **[x] Concluído** | Alta | [02_use_cases/plan.md](file:///c:/projetos/ordem%20de%20pagamentos/conductor/tracks/02_use_cases/plan.md) |
+| **03** | Adaptadores & Concorrência (Multithread / SAB) | **[x] Concluído** | Alta | [03_concurrency/plan.md](file:///c:/projetos/ordem%20de%20pagamentos/conductor/tracks/03_concurrency/plan.md) |
 | **04** | Durabilidade e WAL (Write-Ahead Log & DB) | **[ ] Planejado** | Alta | [04_durability/plan.md](file:///c:/projetos/ordem%20de%20pagamentos/conductor/tracks/04_durability/plan.md) |
 | **05** | O Motor WebGL/WebGPU 3D (Next.js / R3F / Shaders) | **[ ] Planejado** | Média | [05_3d_frontend/plan.md](file:///c:/projetos/ordem%20de%20pagamentos/conductor/tracks/05_3d_frontend/plan.md) |
 | **06** | Integração de Rede (NestJS WS & L2 Aggregator) | **[ ] Planejado** | Média | [06_network_integration/plan.md](file:///c:/projetos/ordem%20de%20pagamentos/conductor/tracks/06_network_integration/plan.md) |
