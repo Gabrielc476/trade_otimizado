@@ -57,152 +57,163 @@ export class MatchingEngine {
     }
 
     const trades: Trade[] = [];
+    let code = ErrorCode.SUCCESS;
 
     if (side === OrderSide.BUY) {
-      // Para compra: bloqueia saldo de quoteAsset
-      const cost = (price * qty) / SCALE;
-      const locked = this.wallet.lock(userId, this.quoteAsset, cost);
-      if (!locked) {
-        return [ErrorCode.INSUFFICIENT_BALANCE, []];
-      }
-
-      const buyOrder = this.pool.acquire(orderId, userId, this.symbol, side, type, price, qty);
-
-      // Casamento contra o livro de vendas (asks)
-      let askNode = this.asks.getMinNode();
-      while (
-        askNode !== null &&
-        (buyOrder.type === OrderType.MARKET || askNode.price <= buyOrder.price) &&
-        buyOrder.qty > buyOrder.filledQty
-      ) {
-        const queue = askNode.list;
-        while (!queue.isEmpty() && buyOrder.qty > buyOrder.filledQty) {
-          const sellOrder = queue.head!;
-          const remainingBuy = buyOrder.qty - buyOrder.filledQty;
-          const remainingSell = sellOrder.qty - sellOrder.filledQty;
-          const matchQty = remainingBuy < remainingSell ? remainingBuy : remainingSell;
-
-          // Executa o trade
-          buyOrder.filledQty += matchQty;
-          sellOrder.filledQty += matchQty;
-
-          const tradePrice = sellOrder.price;
-          this.executeTrade(buyOrder.userId, sellOrder.userId, tradePrice, matchQty, buyOrder.price);
-
-          trades.push({
-            buyerId: buyOrder.userId,
-            sellerId: sellOrder.userId,
-            price: tradePrice,
-            qty: matchQty,
-            timestamp: Date.now(),
-          });
-
-          if (sellOrder.filledQty === sellOrder.qty) {
-            queue.remove(sellOrder);
-            this.pool.release(sellOrder);
-          }
-        }
-
-        const priceToDelete = askNode.price;
-        if (queue.isEmpty()) {
-          this.asks.delete(priceToDelete);
-          askNode = this.asks.getMinNode();
-        } else {
-          break;
-        }
-      }
-
-      if (buyOrder.filledQty < buyOrder.qty) {
-        if (buyOrder.type === OrderType.MARKET) {
-          // Ordem a mercado: cancela o restante e devolve o saldo não gasto
-          const remainingQty = buyOrder.qty - buyOrder.filledQty;
-          const remainingCost = (buyOrder.price * remainingQty) / SCALE;
-          if (remainingCost > 0n) {
-            this.wallet.unlock(buyOrder.userId, this.quoteAsset, remainingCost);
-          }
-          this.pool.release(buyOrder);
-        } else {
-          // Ordem limite: insere o restante no livro de bids
-          const bidQueue = this.bids.insert(buyOrder.price);
-          bidQueue.append(buyOrder);
-        }
-      } else {
-        // Ordem totalmente preenchida
-        this.pool.release(buyOrder);
-      }
+      code = this.processBuy(orderId, userId, type, price, qty, trades);
     } else {
-      // Para venda: bloqueia saldo de baseAsset
-      const locked = this.wallet.lock(userId, this.baseAsset, qty);
-      if (!locked) {
-        return [ErrorCode.INSUFFICIENT_BALANCE, []];
-      }
+      code = this.processSell(orderId, userId, type, price, qty, trades);
+    }
 
-      const sellOrder = this.pool.acquire(orderId, userId, this.symbol, side, type, price, qty);
+    return [code, trades];
+  }
 
-      // Casamento contra o livro de compras (bids)
-      let bidNode = this.bids.getMaxNode();
-      while (
-        bidNode !== null &&
-        (sellOrder.type === OrderType.MARKET || bidNode.price >= sellOrder.price) &&
-        sellOrder.qty > sellOrder.filledQty
-      ) {
-        const queue = bidNode.list;
-        while (!queue.isEmpty() && sellOrder.qty > sellOrder.filledQty) {
-          const buyOrder = queue.head!;
-          const remainingSell = sellOrder.qty - sellOrder.filledQty;
-          const remainingBuy = buyOrder.qty - buyOrder.filledQty;
-          const matchQty = remainingSell < remainingBuy ? remainingSell : remainingBuy;
+  private processBuy(
+    orderId: number,
+    userId: number,
+    type: OrderType,
+    price: bigint,
+    qty: bigint,
+    trades: Trade[]
+  ): ErrorCode {
+    const cost = (price * qty) / SCALE;
+    const locked = this.wallet.lock(userId, this.quoteAsset, cost);
+    if (!locked) {
+      return ErrorCode.INSUFFICIENT_BALANCE;
+    }
 
-          // Executa o trade
-          sellOrder.filledQty += matchQty;
-          buyOrder.filledQty += matchQty;
+    const buyOrder = this.pool.acquire(orderId, userId, this.symbol, OrderSide.BUY, type, price, qty);
 
-          const tradePrice = buyOrder.price;
-          this.executeTrade(buyOrder.userId, sellOrder.userId, tradePrice, matchQty, buyOrder.price);
+    let askNode = this.asks.getMinNode();
+    while (
+      askNode !== null &&
+      (buyOrder.type === OrderType.MARKET || askNode.price <= buyOrder.price) &&
+      buyOrder.qty > buyOrder.filledQty
+    ) {
+      const queue = askNode.list;
+      while (!queue.isEmpty() && buyOrder.qty > buyOrder.filledQty) {
+        const sellOrder = queue.head!;
+        const remainingBuy = buyOrder.qty - buyOrder.filledQty;
+        const remainingSell = sellOrder.qty - sellOrder.filledQty;
+        const matchQty = remainingBuy < remainingSell ? remainingBuy : remainingSell;
 
-          trades.push({
-            buyerId: buyOrder.userId,
-            sellerId: sellOrder.userId,
-            price: tradePrice,
-            qty: matchQty,
-            timestamp: Date.now(),
-          });
+        buyOrder.filledQty += matchQty;
+        sellOrder.filledQty += matchQty;
 
-          if (buyOrder.filledQty === buyOrder.qty) {
-            queue.remove(buyOrder);
-            this.pool.release(buyOrder);
-          }
-        }
+        const tradePrice = sellOrder.price;
+        this.executeTrade(buyOrder.userId, sellOrder.userId, tradePrice, matchQty, buyOrder.price);
 
-        const priceToDelete = bidNode.price;
-        if (queue.isEmpty()) {
-          this.bids.delete(priceToDelete);
-          bidNode = this.bids.getMaxNode();
-        } else {
-          break;
-        }
-      }
+        trades.push({
+          buyerId: buyOrder.userId,
+          sellerId: sellOrder.userId,
+          price: tradePrice,
+          qty: matchQty,
+          timestamp: Date.now(),
+        });
 
-      if (sellOrder.filledQty < sellOrder.qty) {
-        if (sellOrder.type === OrderType.MARKET) {
-          // Ordem a mercado: cancela o restante e devolve o ativo base não vendido
-          const remainingQty = sellOrder.qty - sellOrder.filledQty;
-          if (remainingQty > 0n) {
-            this.wallet.unlock(sellOrder.userId, this.baseAsset, remainingQty);
-          }
+        if (sellOrder.filledQty === sellOrder.qty) {
+          queue.remove(sellOrder);
           this.pool.release(sellOrder);
-        } else {
-          // Ordem limite: insere o restante no livro de asks
-          const askQueue = this.asks.insert(sellOrder.price);
-          askQueue.append(sellOrder);
         }
+      }
+
+      const priceToDelete = askNode.price;
+      if (queue.isEmpty()) {
+        this.asks.delete(priceToDelete);
+        askNode = this.asks.getMinNode();
       } else {
-        // Ordem totalmente preenchida
-        this.pool.release(sellOrder);
+        break;
       }
     }
 
-    return [ErrorCode.SUCCESS, trades];
+    this.settleRemaining(buyOrder);
+    return ErrorCode.SUCCESS;
+  }
+
+  private processSell(
+    orderId: number,
+    userId: number,
+    type: OrderType,
+    price: bigint,
+    qty: bigint,
+    trades: Trade[]
+  ): ErrorCode {
+    const locked = this.wallet.lock(userId, this.baseAsset, qty);
+    if (!locked) {
+      return ErrorCode.INSUFFICIENT_BALANCE;
+    }
+
+    const sellOrder = this.pool.acquire(orderId, userId, this.symbol, OrderSide.SELL, type, price, qty);
+
+    let bidNode = this.bids.getMaxNode();
+    while (
+      bidNode !== null &&
+      (sellOrder.type === OrderType.MARKET || bidNode.price >= sellOrder.price) &&
+      sellOrder.qty > sellOrder.filledQty
+    ) {
+      const queue = bidNode.list;
+      while (!queue.isEmpty() && sellOrder.qty > sellOrder.filledQty) {
+        const buyOrder = queue.head!;
+        const remainingSell = sellOrder.qty - sellOrder.filledQty;
+        const remainingBuy = buyOrder.qty - buyOrder.filledQty;
+        const matchQty = remainingSell < remainingBuy ? remainingSell : remainingBuy;
+
+        sellOrder.filledQty += matchQty;
+        buyOrder.filledQty += matchQty;
+
+        const tradePrice = buyOrder.price;
+        this.executeTrade(buyOrder.userId, sellOrder.userId, tradePrice, matchQty, buyOrder.price);
+
+        trades.push({
+          buyerId: buyOrder.userId,
+          sellerId: sellOrder.userId,
+          price: tradePrice,
+          qty: matchQty,
+          timestamp: Date.now(),
+        });
+
+        if (buyOrder.filledQty === buyOrder.qty) {
+          queue.remove(buyOrder);
+          this.pool.release(buyOrder);
+        }
+      }
+
+      const priceToDelete = bidNode.price;
+      if (queue.isEmpty()) {
+        this.bids.delete(priceToDelete);
+        bidNode = this.bids.getMaxNode();
+      } else {
+        break;
+      }
+    }
+
+    this.settleRemaining(sellOrder);
+    return ErrorCode.SUCCESS;
+  }
+
+  private settleRemaining(order: Order): void {
+    if (order.filledQty < order.qty) {
+      if (order.type === OrderType.MARKET) {
+        const remainingQty = order.qty - order.filledQty;
+        if (order.side === OrderSide.BUY) {
+          const remainingCost = (order.price * remainingQty) / SCALE;
+          if (remainingCost > 0n) {
+            this.wallet.unlock(order.userId, this.quoteAsset, remainingCost);
+          }
+        } else {
+          if (remainingQty > 0n) {
+            this.wallet.unlock(order.userId, this.baseAsset, remainingQty);
+          }
+        }
+        this.pool.release(order);
+      } else {
+        const tree = order.side === OrderSide.BUY ? this.bids : this.asks;
+        const queue = tree.insert(order.price);
+        queue.append(order);
+      }
+    } else {
+      this.pool.release(order);
+    }
   }
 
   private executeTrade(
@@ -214,11 +225,9 @@ export class MatchingEngine {
   ): void {
     const tradeValue = (tradePrice * matchQty) / SCALE;
 
-    // 1. Debita do comprador o ativo de cotação correspondente ao valor real (tradeValue)
     this.wallet.debitLocked(buyerId, this.quoteAsset, tradeValue);
-    // 2. Debita do vendedor o ativo base (que estava bloqueado)
     this.wallet.debitLocked(sellerId, this.baseAsset, matchQty);
-    // 3. Reembolsa a diferença de preço para o comprador (desbloqueia o valor excedente)
+
     if (buyPriceCap > tradePrice) {
       const buyerLockedDebit = (buyPriceCap * matchQty) / SCALE;
       const refund = buyerLockedDebit - tradeValue;
@@ -226,9 +235,8 @@ export class MatchingEngine {
         this.wallet.unlock(buyerId, this.quoteAsset, refund);
       }
     }
-    // 4. Credita o ativo base para o comprador
+
     this.wallet.credit(buyerId, this.baseAsset, matchQty);
-    // 5. Credita o ativo de cotação para o vendedor
     this.wallet.credit(sellerId, this.quoteAsset, tradeValue);
   }
 }
