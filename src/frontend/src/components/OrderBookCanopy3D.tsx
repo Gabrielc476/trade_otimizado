@@ -93,10 +93,8 @@ export const OrderBookCanopy3D: React.FC = () => {
   return (
     <instancedMesh ref={meshRef} args={[null as any, null as any, 1000]}>
       <boxGeometry args={[1, 1, 1]} />
-      {/* Material físico otimizado com reflexos neon */}
-      <meshStandardMaterial
-        roughness={0.05}
-        metalness={0.9}
+      {/* Material auto-iluminado neon para visual futurista cyberpunk */}
+      <meshBasicMaterial
         toneMapped={false}
       />
     </instancedMesh>

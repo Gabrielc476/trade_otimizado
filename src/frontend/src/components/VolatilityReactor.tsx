@@ -7,6 +7,7 @@ import { REACTOR_VERTEX_SHADER, REACTOR_FRAGMENT_SHADER } from "./shaders/reacto
 export const VolatilityReactor: React.FC = () => {
   const materialRef = useRef<THREE.ShaderMaterial>(null);
   const meshRef = useRef<THREE.Mesh>(null);
+  const outerRef = useRef<THREE.Mesh>(null);
 
   // Referência local para guardar o valor de volatilidade sem causar re-render no React
   const volatilityRef = useRef<number>(0.15);
@@ -21,17 +22,25 @@ export const VolatilityReactor: React.FC = () => {
 
   useFrame((state) => {
     const { clock } = state;
+    const speed = 0.1 + volatilityRef.current * 0.4;
+    const time = clock.getElapsedTime();
+
     if (materialRef.current) {
       // Passa os valores de tempo e volatilidade diretamente para a GPU
-      materialRef.current.uniforms.uTime.value = clock.getElapsedTime();
+      materialRef.current.uniforms.uTime.value = time;
       materialRef.current.uniforms.uVolatility.value = volatilityRef.current;
     }
 
     if (meshRef.current) {
       // Rotação sutil da esfera de plasma para dar profundidade espacial
-      const speed = 0.1 + volatilityRef.current * 0.4;
       meshRef.current.rotation.y += 0.003 * speed;
       meshRef.current.rotation.x += 0.001 * speed;
+    }
+
+    if (outerRef.current) {
+      // Rotação contrária do escudo de contenção externo para efeito de paralaxe
+      outerRef.current.rotation.y -= 0.005 * speed;
+      outerRef.current.rotation.z += 0.002 * speed;
     }
   });
 
@@ -41,9 +50,12 @@ export const VolatilityReactor: React.FC = () => {
     uVolatility: { value: 0.15 },
   });
 
+  // Escolhe a cor do escudo baseado na volatilidade
+  const outerColor = volatilityRef.current > 0.55 ? "#ff0055" : "#00ccff";
+
   return (
     <group position={[0, 0, 0]}>
-      {/* Esfera de plasma interna */}
+      {/* 1. Esfera de plasma interna (Core) */}
       <mesh ref={meshRef} castShadow receiveShadow>
         <sphereGeometry args={[1.5, 64, 64]} />
         <shaderMaterial
@@ -54,6 +66,19 @@ export const VolatilityReactor: React.FC = () => {
           transparent={true}
           depthWrite={false}
           blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+
+      {/* 2. Escudo de contenção holográfico externo (Icosaedro em Wireframe) */}
+      <mesh ref={outerRef}>
+        <icosahedronGeometry args={[1.72, 2]} />
+        <meshBasicMaterial
+          color={outerColor}
+          wireframe={true}
+          transparent={true}
+          opacity={0.16 + volatilityRef.current * 0.2}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
         />
       </mesh>
 

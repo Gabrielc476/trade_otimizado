@@ -195,3 +195,33 @@ export const GRID_FRAGMENT_SHADER = `
     gl_FragColor = vec4(gridColor, alpha);
   }
 `;
+
+export const PARTICLE_VERTEX_SHADER = `
+  attribute float size;
+  attribute vec3 color;
+  varying vec3 vColor;
+
+  void main() {
+    vColor = color;
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    // Ajusta o tamanho do ponto baseado na distância à câmera para dar perspectiva
+    gl_PointSize = size * (300.0 / -mvPosition.z);
+    gl_Position = projectionMatrix * mvPosition;
+  }
+`;
+
+export const PARTICLE_FRAGMENT_SHADER = `
+  varying vec3 vColor;
+
+  void main() {
+    // Distância do pixel ao centro do ponto
+    float dist = distance(gl_PointCoord, vec2(0.5));
+    if (dist > 0.5) discard;
+    
+    // Atenuação suave (fade) da borda para criar um aspecto de brilho circular macio
+    float alpha = smoothstep(0.5, 0.1, dist);
+    
+    // Cor final brilhante
+    gl_FragColor = vec4(vColor, alpha * 0.95);
+  }
+`;

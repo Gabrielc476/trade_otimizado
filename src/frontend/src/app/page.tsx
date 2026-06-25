@@ -11,8 +11,11 @@ import { MockMarketGenerator } from "../utils/mockGenerator";
 import { Eye, Shield, Cpu, RefreshCw } from "lucide-react";
 
 export default function TerminalPage() {
+  const [mounted, setMounted] = React.useState(false);
+
   // Inicializa o gerador de dados de mercado em alta frequência no cliente
   useEffect(() => {
+    setMounted(true);
     const generator = new MockMarketGenerator();
     generator.start();
 
@@ -20,6 +23,10 @@ export default function TerminalPage() {
       generator.stop();
     };
   }, []);
+
+  if (!mounted) {
+    return <div className="min-h-screen w-full bg-[#030303]" />;
+  }
 
   return (
     <main className="relative min-h-screen w-full bg-[#030303] text-zinc-50 overflow-hidden select-none select-none">

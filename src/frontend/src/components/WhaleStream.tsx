@@ -2,7 +2,7 @@ import React, { useRef, useEffect } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { useStore, TradeEvent } from "../store/useStore";
-import { GRID_VERTEX_SHADER, GRID_FRAGMENT_SHADER } from "./shaders/reactorShaders";
+import { GRID_VERTEX_SHADER, GRID_FRAGMENT_SHADER, PARTICLE_VERTEX_SHADER, PARTICLE_FRAGMENT_SHADER } from "./shaders/reactorShaders";
 
 // Configurações do pool de partículas
 const MAX_PARTICLES = 250;
@@ -25,20 +25,17 @@ export const WhaleStream: React.FC = () => {
     color: THREE.Color;
     life: number;
     maxLife: number;
-  }[]>([]);
+  }[]>(Array.from({ length: MAX_PARTICLES }, () => ({
+    pos: new THREE.Vector3(0, -999, 0),
+    vel: new THREE.Vector3(0, 0, 0),
+    size: 0,
+    color: new THREE.Color(),
+    life: 0,
+    maxLife: 0,
+  })));
 
   // Subscrição para novos trades
   useEffect(() => {
-    // Inicializa o pool de partículas inativas
-    particlesData.current = Array.from({ length: MAX_PARTICLES }, () => ({
-      pos: new THREE.Vector3(0, -999, 0),
-      vel: new THREE.Vector3(0, 0, 0),
-      size: 0,
-      color: new THREE.Color(),
-      life: 0,
-      maxLife: 0,
-    }));
-
     let lastProcessedTradeId = 0;
     let lastTrades = useStore.getState().trades;
 
@@ -232,14 +229,13 @@ export const WhaleStream: React.FC = () => {
             args={[initialSizes.current, 1]}
           />
         </bufferGeometry>
-        {/* Custom shader simples para renderizar partículas como círculos perfeitos brilhantes */}
-        <pointsMaterial
-          vertexColors
-          size={1}
-          sizeAttenuation={true}
+        <shaderMaterial
+          vertexColors={true}
           transparent={true}
           depthWrite={false}
           blending={THREE.AdditiveBlending}
+          vertexShader={PARTICLE_VERTEX_SHADER}
+          fragmentShader={PARTICLE_FRAGMENT_SHADER}
         />
       </points>
     </group>

@@ -43,6 +43,12 @@ export const MainCanvas3D: React.FC = () => {
         <VolatilityReactor />
         <WhaleStream />
 
+        {/* Grade de Piso Cibernética (Gounds the scene in 3D perspective) */}
+        <gridHelper args={[40, 40, "#18181b", "#0c0c0e"]} position={[0, -1.51, 0]} />
+        
+        {/* Radar Holográfico Circular no centro sob o Reator de Volatilidade */}
+        <polarGridHelper args={[9, 16, 6, 64, "#6b21a8", "#2e0854"]} position={[0, -1.50, 0]} />
+
         {/* Controles de Câmera */}
         <OrbitControls
           enableDamping={true}
