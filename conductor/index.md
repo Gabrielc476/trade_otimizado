@@ -14,6 +14,7 @@ Estes documentos definem as diretrizes perenes do projeto e guiam o comportament
 *   [workflow.md](file:///c:/projetos/ordem%20de%20pagamentos/conductor/workflow.md) — **COMO TRABALHAR**: Convenções de Git, ciclo de TDD, qualidade de código, segurança de concorrência e processos de CI/CD.
 *   [tracks.md](file:///c:/projetos/ordem%20de%20pagamentos/conductor/tracks.md) — **O QUE ESTÁ ACONTECENDO**: O registro de tarefas (*tracks*) ativas, planejadas e concluídas.
 *   [apex_trade_refined_context.md](file:///c:/projetos/ordem%20de%20pagamentos/conductor/apex_trade_refined_context.md) — **ARQUITETURA DETALHADA**: Especificação técnica refinada sob Clean Architecture e otimizações V8.
+*   [frontend_specification.md](file:///c:/projetos/ordem%20de%20pagamentos/conductor/frontend_specification.md) — **FRONTEND 3D DETALHADO**: Especificações de layout Bento Grid, Zustand transiente, R3F InstancedMesh, GLSL Shaders e gráficos.
 
 ---
 

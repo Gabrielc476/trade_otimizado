@@ -24,6 +24,7 @@ export class MatchingEngine {
   public asks: RedBlackTree;
   public wallet: Wallet;
   public pool: OrderPool;
+  public activeOrders: Map<number, Order>;
 
   constructor(
     symbol: string,
@@ -39,6 +40,7 @@ export class MatchingEngine {
     this.pool = pool;
     this.bids = new RedBlackTree();
     this.asks = new RedBlackTree();
+    this.activeOrders = new Map();
   }
 
   public processOrder(
@@ -113,6 +115,7 @@ export class MatchingEngine {
 
         if (sellOrder.filledQty === sellOrder.qty) {
           queue.remove(sellOrder);
+          this.activeOrders.delete(sellOrder.id);
           this.pool.release(sellOrder);
         }
       }
@@ -174,6 +177,7 @@ export class MatchingEngine {
 
         if (buyOrder.filledQty === buyOrder.qty) {
           queue.remove(buyOrder);
+          this.activeOrders.delete(buyOrder.id);
           this.pool.release(buyOrder);
         }
       }
@@ -210,6 +214,7 @@ export class MatchingEngine {
         const tree = order.side === OrderSide.BUY ? this.bids : this.asks;
         const queue = tree.insert(order.price);
         queue.append(order);
+        this.activeOrders.set(order.id, order);
       }
     } else {
       this.pool.release(order);
@@ -238,5 +243,35 @@ export class MatchingEngine {
 
     this.wallet.credit(buyerId, this.baseAsset, matchQty);
     this.wallet.credit(sellerId, this.quoteAsset, tradeValue);
+  }
+
+  public cancelOrder(orderId: number): boolean {
+    const order = this.activeOrders.get(orderId);
+    if (!order) {
+      return false;
+    }
+
+    const tree = order.side === OrderSide.BUY ? this.bids : this.asks;
+    const queue = tree.find(order.price);
+    if (queue) {
+      queue.remove(order);
+      if (queue.isEmpty()) {
+        tree.delete(order.price);
+      }
+    }
+
+    const remainingQty = order.qty - order.filledQty;
+    if (remainingQty > 0n) {
+      if (order.side === OrderSide.BUY) {
+        const remainingCost = (order.price * remainingQty) / SCALE;
+        this.wallet.unlock(order.userId, this.quoteAsset, remainingCost);
+      } else {
+        this.wallet.unlock(order.userId, this.baseAsset, remainingQty);
+      }
+    }
+
+    this.pool.release(order);
+    this.activeOrders.delete(orderId);
+    return true;
   }
 }
