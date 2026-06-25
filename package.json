@@ -1,0 +1,30 @@
+{
+  "name": "ordem-de-pagamentos",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "test:cov": "jest --coverage",
+    "benchmark": "npx ts-node src/benchmarks/engine.benchmark.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gabrielc476/trade_otimizado.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Gabrielc476/trade_otimizado/issues"
+  },
+  "homepage": "https://github.com/Gabrielc476/trade_otimizado#readme",
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^26.0.1",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.11",
+    "typescript": "^6.0.3"
+  }
+}

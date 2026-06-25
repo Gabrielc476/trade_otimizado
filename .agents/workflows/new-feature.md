@@ -1,0 +1,5 @@
+---
+description: Toda vez que for trabalhar em uma nova feature esse workflow vai ler os passos necessarios
+---
+
+Começe lendo o arquivo apex_trade_refined_context.md, depois leia o index, depois baseado no prompt do usuario você vai procurar a track na qual ele trabalhar, se não achar uma track especifica pergunte ao usuario para ele detalhar melhor e só então prossiga com o resto do workflow, após isso leia o arquivo workflow e o arquivo correspondente a track, depois leia o resto dos arquivos na pasta conductor, todos os arquivos anteriores estão na pasta conductor, ao finalizar essa parte você deve utilizar  a skill grill-me para alinhar duvidas e pontos importantes e então criar um plano de implementação. após a execução dos testes e e track estiver completa você deve fazer o commit e o push no git através de uma branch nova feature. se não existir crie um .gitignore.
