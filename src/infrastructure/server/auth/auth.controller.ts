@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, BadRequestException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 
 @Controller('api/auth')
@@ -8,19 +8,29 @@ export class AuthController {
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   async register(
-    @Body('email') email: string,
-    @Body('name') name: string,
-    @Body('password') password: string,
+    @Body('email') email?: string,
+    @Body('id') id?: number,
+    @Body('name') name?: string,
+    @Body('password') password?: string,
   ) {
-    return this.authService.register(email, name, password);
+    const emailOrId = email || id;
+    if (!emailOrId) {
+      throw new BadRequestException('Email or ID is required');
+    }
+    return this.authService.register(emailOrId, name || 'User', password || '');
   }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(
-    @Body('email') email: string,
-    @Body('password') password: string,
+    @Body('email') email?: string,
+    @Body('id') id?: number,
+    @Body('password') password?: string,
   ) {
-    return this.authService.login(email, password);
+    const emailOrId = email || id;
+    if (!emailOrId) {
+      throw new BadRequestException('Email or ID is required');
+    }
+    return this.authService.login(emailOrId, password || '');
   }
 }
