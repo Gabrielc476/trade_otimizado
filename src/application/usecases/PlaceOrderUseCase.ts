@@ -55,7 +55,7 @@ export class PlaceOrderUseCase {
       // 5. Publish trades
       for (let i = 0; i < trades.length; i++) {
         const trade = trades[i];
-        this.eventPublisherPort.publishTrade(trade.buyerId, trade.sellerId, trade.price, trade.qty);
+        this.eventPublisherPort.publishTrade(trade.buyerId, trade.sellerId, trade.price, trade.qty, side);
       }
     }
 

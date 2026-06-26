@@ -59,9 +59,9 @@ export class SwitchableEventPublisherPort implements EventPublisherPort {
     this.enabled = enabled;
   }
 
-  public publishTrade(buyerId: number, sellerId: number, price: bigint, qty: bigint): void {
+  public publishTrade(buyerId: number, sellerId: number, price: bigint, qty: bigint, takerSide?: OrderSide): void {
     if (this.enabled) {
-      this.backingPort.publishTrade(buyerId, sellerId, price, qty);
+      this.backingPort.publishTrade(buyerId, sellerId, price, qty, takerSide);
     }
   }
 

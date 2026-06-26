@@ -19,6 +19,7 @@ export interface EngineEvent {
 }
 
 export class MatchEngineLoopUseCase {
+  public onEventProcessed?: (elapsedMs: number) => void;
   private queue: EngineEvent[];
   private placeOrderUseCase: PlaceOrderUseCase;
   private cancelOrderUseCase: CancelOrderUseCase;
@@ -61,6 +62,7 @@ export class MatchEngineLoopUseCase {
   }
 
   private processEvent(event: EngineEvent): void {
+    const start = process.hrtime.bigint();
     if (event.type === 'PLACE_ORDER') {
       this.placeOrderUseCase.execute(
         event.orderId!,
@@ -76,6 +78,11 @@ export class MatchEngineLoopUseCase {
       this.depositUseCase.execute(event.userId!, event.asset!, event.amount!);
     } else if (event.type === 'WITHDRAW') {
       this.withdrawUseCase.execute(event.userId!, event.asset!, event.amount!);
+    }
+    const end = process.hrtime.bigint();
+    if (this.onEventProcessed) {
+      const elapsedMs = Number(end - start) / 1_000_000;
+      this.onEventProcessed(elapsedMs);
     }
   }
 

@@ -13,6 +13,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
   private outboxPoller!: OutboxPoller;
   private syncWorker!: PgSyncWorker;
   private walPath: string;
+  private walJournal: BinaryWALJournalAdapter;
   private readonly assets = ['BTC', 'USDT'];
   private eventListeners: ((message: any) => void)[] = [];
 
@@ -21,6 +22,7 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     this.walPath = path.resolve(process.cwd(), 'wal.log');
     this.pgClient = new PgClient();
     this.workerDriver = new WorkerThreadDriver(this.assets, this.walPath);
+    this.walJournal = new BinaryWALJournalAdapter(this.walPath);
   }
 
   public getPgClient(): PgClient {
@@ -44,18 +46,31 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
 
     // 2. Listen for worker messages
     this.workerDriver.onMessage((msg) => {
+      // Journal worker events directly to WAL for durability on restart
+      if (msg.type === 'JOURNAL_ENTRY') {
+        this.walJournal.writeEntry(
+          msg.orderId,
+          msg.userId,
+          msg.side,
+          msg.orderType,
+          BigInt(msg.price),
+          BigInt(msg.qty)
+        );
+      } else if (msg.type === 'JOURNAL_CANCEL') {
+        this.walJournal.writeCancelEntry(msg.orderId);
+      }
+
       for (const listener of this.eventListeners) {
         listener(msg);
       }
     });
 
     // 3. Initialize Outbox Poller
-    // We create a simple JournalingPort adapter for the main thread to write to WAL
-    const mainThreadWALAdapter = new BinaryWALJournalAdapter(this.walPath);
+    // Pass the centrally managed WAL journal to the OutboxPoller
     this.outboxPoller = new OutboxPoller(
       this.pgClient.getPool(),
       this.workerDriver,
-      mainThreadWALAdapter
+      this.walJournal
     );
     this.outboxPoller.start(100); // Poll every 100ms
     console.log('Outbox Poller started.');
@@ -76,6 +91,9 @@ export class EngineService implements OnModuleInit, OnModuleDestroy {
     }
     if (this.workerDriver) {
       await this.workerDriver.terminate();
+    }
+    if (this.walJournal) {
+      this.walJournal.close();
     }
     if (this.pgClient) {
       await this.pgClient.close();

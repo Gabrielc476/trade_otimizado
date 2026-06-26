@@ -80,6 +80,7 @@ export const useStore = create<StoreState>((set) => ({
   asks: [],
   maxVolume: 1.0,
   updateOrderBook: (bids, asks) => {
+    console.log(`[Store] updateOrderBook called. Bids count: ${bids.length}, Asks count: ${asks.length}`);
     let maxVol = 0.1;
     for (let i = 0; i < bids.length; i++) {
       if (bids[i].quantity > maxVol) maxVol = bids[i].quantity;
@@ -92,14 +93,16 @@ export const useStore = create<StoreState>((set) => ({
 
   // Trade History
   trades: [],
-  addTrade: (trade) =>
-    set((state) => {
+  addTrade: (trade) => {
+    console.log('[Store] addTrade called. Trade details:', trade);
+    return set((state) => {
       const newTrades = [trade, ...state.trades];
       if (newTrades.length > 500) {
         newTrades.pop();
       }
       return { trades: newTrades };
-    }),
+    });
+  },
 
   // Liquidation History
   liquidations: [],
@@ -116,7 +119,10 @@ export const useStore = create<StoreState>((set) => ({
   // Wallet
   usdBalance: 150000.0,
   btcBalance: 2.458319,
-  updateBalances: (usd, btc) => set({ usdBalance: usd, btcBalance: btc }),
+  updateBalances: (usd, btc) => {
+    console.log(`[Store] updateBalances called. USD: ${usd}, BTC: ${btc}`);
+    return set({ usdBalance: usd, btcBalance: btc });
+  },
 
   // System Metrics & 3D Control
   volatility: 0.15,

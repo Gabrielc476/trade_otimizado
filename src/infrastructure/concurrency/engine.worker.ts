@@ -22,15 +22,61 @@ const wallet = new Wallet(sab, assets);
 // Create the OrderPool (100,000 orders max size for recycling)
 const pool = new OrderPool(100000);
 
+// Telemetry state & buffers (Zero-Allocation)
+let processedCount = 0;
+const maxLatencies = 100000;
+const latencyBuffer = new Float64Array(maxLatencies);
+let latencyCount = 0;
+
+const maxTradePrices = 100;
+const tradePrices = new Float64Array(maxTradePrices);
+let tradePriceCount = 0;
+let tradePriceIdx = 0;
+
+function recordLatency(elapsedMs: number) {
+  processedCount++;
+  if (latencyCount < maxLatencies) {
+    latencyBuffer[latencyCount++] = elapsedMs;
+  }
+}
+
+function recordTradePrice(price: number) {
+  tradePrices[tradePriceIdx] = price;
+  tradePriceIdx = (tradePriceIdx + 1) % maxTradePrices;
+  if (tradePriceCount < maxTradePrices) {
+    tradePriceCount++;
+  }
+}
+
+function calculateVolatility(): number {
+  if (tradePriceCount < 2) return 0.15; // default baseline volatility
+  let min = tradePrices[0];
+  let max = tradePrices[0];
+  for (let i = 1; i < tradePriceCount; i++) {
+    const p = tradePrices[i];
+    if (p < min) min = p;
+    if (p > max) max = p;
+  }
+  const mid = (min + max) / 2;
+  if (mid === 0) return 0.15;
+  const rawVol = (max - min) / mid;
+  const scaledVol = rawVol * 20; // scale factor
+  return Math.min(Math.max(scaledVol, 0.05), 1.0); // cap between 0.05 and 1.00
+}
+
 // Implement the outward ports to send messages back to the parent thread
 class WorkerEventPublisher implements EventPublisherPort {
-  public publishTrade(buyerId: number, sellerId: number, price: bigint, qty: bigint): void {
+  public publishTrade(buyerId: number, sellerId: number, price: bigint, qty: bigint, takerSide?: OrderSide): void {
+    // Record price for volatility calculations (convert scaled bigint to double)
+    recordTradePrice(Number(price) / 100000000);
+
     parentPort!.postMessage({
       type: 'TRADE',
       buyerId,
       sellerId,
       price,
       qty,
+      takerSide,
     });
   }
 
@@ -132,6 +178,9 @@ const {
   eventPublisher
 );
 
+// Register latency hook on the loop use case
+loopUseCase.onEventProcessed = recordLatency;
+
 // Perform WAL Crash Recovery if a WAL file is specified and exists
 if (walPath) {
   eventPublisher.setEnabled(false);
@@ -216,12 +265,13 @@ setInterval(() => {
   // Indices 62-81: ask quantities (up to 20)
   const l2Data = new Float64Array(82);
 
-  const nil = engine.bids.getNIL();
+  const bidsNil = engine.bids.getNIL();
+  const asksNil = engine.asks.getNIL();
 
   // 1. Collect Bids (Highest to Lowest price)
   let bidCount = 0;
   let currentBidNode = engine.bids.getMaxNode();
-  while (currentBidNode !== null && currentBidNode !== nil && bidCount < 20) {
+  while (currentBidNode !== null && currentBidNode !== bidsNil && bidCount < 20) {
     let totalQty: bigint = 0n;
     let currentOrder = currentBidNode.list.head;
     while (currentOrder !== null) {
@@ -235,14 +285,14 @@ setInterval(() => {
       bidCount++;
     }
 
-    currentBidNode = getPredecessor(currentBidNode, nil);
+    currentBidNode = getPredecessor(currentBidNode, bidsNil);
   }
   l2Data[0] = bidCount;
 
   // 2. Collect Asks (Lowest to Highest price)
   let askCount = 0;
   let currentAskNode = engine.asks.getMinNode();
-  while (currentAskNode !== null && currentAskNode !== nil && askCount < 20) {
+  while (currentAskNode !== null && currentAskNode !== asksNil && askCount < 20) {
     let totalQty: bigint = 0n;
     let currentOrder = currentAskNode.list.head;
     while (currentOrder !== null) {
@@ -256,7 +306,7 @@ setInterval(() => {
       askCount++;
     }
 
-    currentAskNode = getSuccessor(currentAskNode, nil);
+    currentAskNode = getSuccessor(currentAskNode, asksNil);
   }
   l2Data[1] = askCount;
 
@@ -269,6 +319,41 @@ setInterval(() => {
     [l2Data.buffer]
   );
 }, 50);
+
+// Metrics Dispatcher (every 500ms)
+setInterval(() => {
+  if (processedCount > 0) {
+    const activeLatencies = latencyBuffer.subarray(0, latencyCount);
+    // Sort to find percentiles
+    activeLatencies.sort();
+    const p50 = activeLatencies[Math.floor(latencyCount * 0.5)] || 0;
+    const p90 = activeLatencies[Math.floor(latencyCount * 0.9)] || 0;
+    const p99 = activeLatencies[Math.floor(latencyCount * 0.99)] || 0;
+    const volatility = calculateVolatility();
+
+    parentPort!.postMessage({
+      type: 'METRICS',
+      count: processedCount,
+      p50,
+      p90,
+      p99,
+      volatility,
+    });
+
+    processedCount = 0;
+    latencyCount = 0;
+  } else {
+    const volatility = calculateVolatility();
+    parentPort!.postMessage({
+      type: 'METRICS',
+      count: 0,
+      p50: 0,
+      p90: 0,
+      p99: 0,
+      volatility,
+    });
+  }
+}, 500);
 
 // Notify the parent thread that the worker is ready
 parentPort!.postMessage({ type: 'READY' });
