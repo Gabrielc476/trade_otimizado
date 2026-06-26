@@ -1,4 +1,7 @@
 import 'reflect-metadata';
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
@@ -20,7 +23,7 @@ async function bootstrap() {
     whitelist: true,
   }));
 
-  const port = 3001;
+  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
   await app.listen(port);
   console.log(`ApexTrade NestJS Server is running on: http://localhost:${port}`);
 }
