@@ -16,6 +16,22 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { MetricsService } from '../metrics/metrics.service';
 
+function safeStringify(msg: any): string {
+  if (!msg) return '{}';
+  const copy: any = {};
+  for (const key of Object.keys(msg)) {
+    const val = msg[key];
+    if (typeof val === 'bigint') {
+      copy[key] = val.toString();
+    } else if (val instanceof Float64Array) {
+      copy[key] = `Float64Array(${val.length})`;
+    } else {
+      copy[key] = val;
+    }
+  }
+  return JSON.stringify(copy);
+}
+
 @WebSocketGateway({
   cors: {
     origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
@@ -89,7 +105,7 @@ export class TradingGateway implements OnGatewayConnection, OnGatewayDisconnect,
       
       // Log non-L2 events or a small fraction of L2 events to avoid disk spam
       if (msg.type !== 'L2_UPDATE') {
-        const logMsg = `[${new Date().toISOString()}] msg: ${JSON.stringify(msg, (key, value) => typeof value === 'bigint' ? value.toString() : value)}\n`;
+        const logMsg = `[${new Date().toISOString()}] msg: ${safeStringify(msg)}\n`;
         fs.appendFileSync(logPath, logMsg);
       } else {
         if (Math.random() < 0.01) {
