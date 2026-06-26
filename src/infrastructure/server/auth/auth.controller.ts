@@ -8,11 +8,10 @@ export class AuthController {
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   async register(
-    @Body('id') id: number,
     @Body('name') name: string,
     @Body('password') password: string,
   ) {
-    return this.authService.register(id, name, password);
+    return this.authService.register(name, password);
   }
 
   @Post('login')

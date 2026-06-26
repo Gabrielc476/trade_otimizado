@@ -25,10 +25,24 @@ export class PgClient {
     try {
       await client.query('BEGIN');
 
+      // Check if users table exists and if id column is serial/auto-incrementing. If not, drop to recreate.
+      const tableCheck = await client.query(`
+        SELECT column_default 
+        FROM information_schema.columns 
+        WHERE table_name = 'users' AND column_name = 'id'
+      `);
+      if (tableCheck.rows.length > 0) {
+        const defaultValue = tableCheck.rows[0].column_default;
+        if (!defaultValue || !defaultValue.includes('nextval')) {
+          console.log('Recreating users table to support auto-incrementing IDs...');
+          await client.query('DROP TABLE IF EXISTS users CASCADE;');
+        }
+      }
+
       // 1. Create users table
       await client.query(`
         CREATE TABLE IF NOT EXISTS users (
-          id INT PRIMARY KEY,
+          id SERIAL PRIMARY KEY,
           name VARCHAR(100) DEFAULT 'User',
           password_hash VARCHAR(255)
         );

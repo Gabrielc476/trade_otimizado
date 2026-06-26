@@ -7,7 +7,6 @@ import { OrderEntryForm } from "../components/OrderEntryForm";
 import { TradeHistoryList } from "../components/TradeHistoryList";
 import { TradingViewChart } from "../components/TradingViewChart";
 import { OrderBook2D } from "../components/OrderBook2D";
-import { MockMarketGenerator } from "../utils/mockGenerator";
 import { wsClient } from "../utils/websocket";
 import { useStore } from "../store/useStore";
 import { Shield, Cpu, RefreshCw, BarChart2 } from "lucide-react";
@@ -58,30 +57,20 @@ export default function TerminalPage() {
     setMounted(true);
   }, []);
 
-  // Alterna entre Mock simulator e Live websocket connection
+  // Conecta/desconecta o websocket client baseado no token
   useEffect(() => {
     if (!mounted) return;
 
-    let generator: MockMarketGenerator | null = null;
-
-    if (!isLive) {
-      generator = new MockMarketGenerator();
-      generator.start();
+    if (token) {
+      wsClient.connect(token);
     } else {
-      if (token) {
-        wsClient.connect(token);
-      } else {
-        wsClient.disconnect();
-      }
+      wsClient.disconnect();
     }
 
     return () => {
-      if (generator) {
-        generator.stop();
-      }
       wsClient.disconnect();
     };
-  }, [mounted, isLive, token]);
+  }, [mounted, token]);
 
   if (!mounted) {
     return <div className="min-h-screen w-full bg-[#030303]" />;
@@ -93,7 +82,7 @@ export default function TerminalPage() {
       <Header />
 
       {/* PAINEL PRINCIPAL: GRID BENTO DE 3 COLUNAS */}
-      <div className="w-full grid grid-cols-12 gap-4 flex-1 items-start">
+      <div className="w-full grid grid-cols-12 gap-4 flex-1">
         
         {/* COLUNA ESQUERDA: CARTEIRA + TERMINAL DE ORDENS (Col 1 a 3 - 3 Colunas) */}
         <section className="col-span-12 lg:col-span-3 flex flex-col gap-4 bg-zinc-950/40 border border-zinc-800/40 backdrop-blur-md rounded-2xl p-5 shadow-2xl h-full">

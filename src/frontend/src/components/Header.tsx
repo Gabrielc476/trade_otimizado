@@ -24,28 +24,20 @@ export const Header: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleModeToggle = (mode: "MOCK" | "LIVE") => {
-    if (mode === "LIVE") {
-      setIsLive(true);
-      if (!currentUser) {
-        setShowAuthModal(true);
-      }
-    } else {
-      setIsLive(false);
-      wsClient.disconnect();
-    }
-  };
+  // Removed handleModeToggle since simulator mode is retired
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
     setLoading(true);
 
-    const idNum = parseInt(userId, 10);
-    if (isNaN(idNum) || idNum <= 0) {
-      setErrorMsg("ID do usuário deve ser um número positivo.");
-      setLoading(false);
-      return;
+    let loginId = parseInt(userId, 10);
+    if (!isRegistering) {
+      if (isNaN(loginId) || loginId <= 0) {
+        setErrorMsg("ID do usuário deve ser um número positivo.");
+        setLoading(false);
+        return;
+      }
     }
 
     try {
@@ -54,20 +46,23 @@ export const Header: React.FC = () => {
         const regRes = await fetch("http://localhost:3001/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: idNum, name: username || `User #${idNum}`, password }),
+          body: JSON.stringify({ name: username || "New User", password }),
         });
 
         if (!regRes.ok) {
           const errData = await regRes.json();
           throw new Error(errData.message || "Erro no cadastro.");
         }
+
+        const regData = await regRes.json();
+        loginId = regData.userId;
       }
 
       // 2. Login
       const logRes = await fetch("http://localhost:3001/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: idNum, password }),
+        body: JSON.stringify({ id: loginId, password }),
       });
 
       if (!logRes.ok) {
@@ -76,10 +71,17 @@ export const Header: React.FC = () => {
       }
 
       const data = await logRes.json();
+      
+      if (isRegistering) {
+        alert(`Cadastro realizado com sucesso! Seu ID único de login é: ${loginId}. Guarde este número.`);
+      }
+
       setCurrentUser(data.user, data.accessToken);
       setShowAuthModal(false);
       
       // Reset form
+      setUserId("");
+      setUsername("");
       setPassword("");
       setErrorMsg(null);
     } catch (err: any) {
@@ -92,7 +94,6 @@ export const Header: React.FC = () => {
   const handleLogout = () => {
     setCurrentUser(null, null);
     wsClient.disconnect();
-    setIsLive(false); // Back to mock
   };
 
   return (
@@ -112,29 +113,10 @@ export const Header: React.FC = () => {
           </div>
         </div>
 
-        {/* Toggle MOCK vs LIVE */}
-        <div className="flex p-0.5 bg-black/60 border border-zinc-900 rounded-lg font-mono text-[10px]">
-          <button
-            onClick={() => handleModeToggle("MOCK")}
-            className={`px-3 py-1.5 rounded-md font-bold tracking-wider transition-all cursor-pointer ${
-              !isLive
-                ? "bg-zinc-800/80 text-zinc-100 border border-zinc-700/55"
-                : "text-zinc-500 hover:text-zinc-300"
-            }`}
-          >
-            SIMULADOR (MOCK)
-          </button>
-          <button
-            onClick={() => handleModeToggle("LIVE")}
-            className={`px-3 py-1.5 rounded-md font-bold tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
-              isLive
-                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/35"
-                : "text-zinc-500 hover:text-zinc-300"
-            }`}
-          >
-            {isLiveConnected ? <Link2 className="h-3.5 w-3.5 text-emerald-400" /> : <Link2Off className="h-3.5 w-3.5 text-zinc-500" />}
-            MOTOR REAL (LIVE)
-          </button>
+        {/* Badge de Conexão com o Motor Real */}
+        <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono text-[10px] font-bold tracking-wider px-3 py-1.5 rounded-lg">
+          {isLiveConnected ? <Link2 className="h-3.5 w-3.5 text-emerald-400" /> : <Link2Off className="h-3.5 w-3.5 text-zinc-500 animate-pulse" />}
+          <span>MOTOR REAL (LIVE)</span>
         </div>
       </div>
 
@@ -216,17 +198,19 @@ export const Header: React.FC = () => {
             </div>
 
             <form onSubmit={handleAuthSubmit} className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] text-zinc-500 font-bold">ID DO USUÁRIO (NÚMERO)</label>
-                <input
-                  type="number"
-                  required
-                  placeholder="Ex: 1, 2, 100"
-                  value={userId}
-                  onChange={(e) => setUserId(e.target.value)}
-                  className="bg-black border border-zinc-900 rounded-lg p-2.5 text-sm text-zinc-200 font-bold focus:outline-none focus:border-zinc-850 w-full"
-                />
-              </div>
+              {!isRegistering && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] text-zinc-500 font-bold">ID DO USUÁRIO (NÚMERO)</label>
+                  <input
+                    type="number"
+                    required
+                    placeholder="Ex: 1, 2, 100"
+                    value={userId}
+                    onChange={(e) => setUserId(e.target.value)}
+                    className="bg-black border border-zinc-900 rounded-lg p-2.5 text-sm text-zinc-200 font-bold focus:outline-none focus:border-zinc-850 w-full"
+                  />
+                </div>
+              )}
 
               {isRegistering && (
                 <div className="flex flex-col gap-1.5">

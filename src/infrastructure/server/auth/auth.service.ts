@@ -12,30 +12,25 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  public async register(id: number, name: string, passwordHash: string): Promise<any> {
+  public async register(name: string, passwordHash: string): Promise<any> {
     const pgClient = this.engineService.getPgClient();
     const pool = pgClient.getPool();
     const client = await pool.connect();
 
     try {
-      // 1. Check if user already exists
-      const existing = await client.query('SELECT id FROM users WHERE id = $1', [id]);
-      if (existing.rows.length > 0) {
-        throw new ConflictException(`User with ID ${id} already exists`);
-      }
-
-      // 2. Hash password and insert user
+      // 1. Hash password and insert user returning the generated SERIAL id
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(passwordHash, salt);
 
-      await client.query(
-        'INSERT INTO users (id, name, password_hash) VALUES ($1, $2, $3)',
-        [id, name, hashedPassword]
+      const insertRes = await client.query(
+        'INSERT INTO users (name, password_hash) VALUES ($1, $2) RETURNING id',
+        [name, hashedPassword]
       );
+      const id = insertRes.rows[0].id;
 
       console.log(`User ${name} (#${id}) registered. Crediting initial balances...`);
 
-      // 3. Credit initial balances ($100,000 USD and 10 BTC)
+      // 2. Credit initial balances ($100,000 USD and 10 BTC)
       const outboxPoller = this.engineService.getOutboxPoller();
       const initialUsd = 100000n * this.scale;
       const initialBtc = 10n * this.scale;
@@ -45,7 +40,6 @@ export class AuthService {
 
       return { success: true, userId: id, name };
     } catch (err) {
-      if (err instanceof ConflictException) throw err;
       console.error('Error in register:', err);
       throw new ConflictException('Failed to register user');
     } finally {

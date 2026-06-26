@@ -137,7 +137,7 @@ export const useStore = create<StoreState>((set) => ({
   setSelectedQuantity: (qty) => set({ selectedQuantity: qty }),
 
   // Live Trading Connection Slice
-  isLive: false,
+  isLive: true,
   isLiveConnected: false,
   token: null,
   currentUser: null,
