@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Header } from "../components/Header";
 import { WalletPanel } from "../components/WalletPanel";
 import { OrderEntryForm } from "../components/OrderEntryForm";
@@ -12,6 +13,7 @@ import { useStore } from "../store/useStore";
 import { Shield, Cpu, RefreshCw, BarChart2 } from "lucide-react";
 
 export default function TerminalPage() {
+  const router = useRouter();
   const [mounted, setMounted] = React.useState(false);
 
   // Seletores de estado global do livro para cálculos analíticos em tempo real na interface
@@ -49,13 +51,22 @@ export default function TerminalPage() {
   const trades = useStore((state) => state.trades);
   const whaleTrades = trades.filter((t) => t.quantity > 1.5).slice(0, 3);
 
-  const isLive = useStore((state) => state.isLive);
   const token = useStore((state) => state.token);
+  const currentUser = useStore((state) => state.currentUser);
+  const hydrateAuth = useStore((state) => state.hydrateAuth);
 
-  // Inicializa o estado montado
+  // Inicializa o estado montado e hidrata a autenticação do localStorage
   useEffect(() => {
     setMounted(true);
-  }, []);
+    hydrateAuth();
+  }, [hydrateAuth]);
+
+  // Guard de autenticação: redireciona se não estiver logado
+  useEffect(() => {
+    if (mounted && !currentUser) {
+      router.push("/login");
+    }
+  }, [mounted, currentUser, router]);
 
   // Conecta/desconecta o websocket client baseado no token
   useEffect(() => {
@@ -72,7 +83,7 @@ export default function TerminalPage() {
     };
   }, [mounted, token]);
 
-  if (!mounted) {
+  if (!mounted || !currentUser) {
     return <div className="min-h-screen w-full bg-[#030303]" />;
   }
 

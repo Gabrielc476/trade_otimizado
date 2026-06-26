@@ -8,18 +8,19 @@ export class AuthController {
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   async register(
+    @Body('email') email: string,
     @Body('name') name: string,
     @Body('password') password: string,
   ) {
-    return this.authService.register(name, password);
+    return this.authService.register(email, name, password);
   }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(
-    @Body('id') id: number,
+    @Body('email') email: string,
     @Body('password') password: string,
   ) {
-    return this.authService.login(id, password);
+    return this.authService.login(email, password);
   }
 }

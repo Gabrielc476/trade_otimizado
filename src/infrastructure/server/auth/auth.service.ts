@@ -12,25 +12,31 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  public async register(name: string, passwordHash: string): Promise<any> {
+  public async register(email: string, name: string, passwordHash: string): Promise<any> {
     const pgClient = this.engineService.getPgClient();
     const pool = pgClient.getPool();
     const client = await pool.connect();
 
     try {
-      // 1. Hash password and insert user returning the generated SERIAL id
+      // 1. Check if email already exists
+      const existing = await client.query('SELECT id FROM users WHERE email = $1', [email]);
+      if (existing.rows.length > 0) {
+        throw new ConflictException('Email already registered');
+      }
+
+      // 2. Hash password and insert user returning the generated SERIAL id
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(passwordHash, salt);
 
       const insertRes = await client.query(
-        'INSERT INTO users (name, password_hash) VALUES ($1, $2) RETURNING id',
-        [name, hashedPassword]
+        'INSERT INTO users (email, name, password_hash) VALUES ($1, $2, $3) RETURNING id',
+        [email, name, hashedPassword]
       );
       const id = insertRes.rows[0].id;
 
-      console.log(`User ${name} (#${id}) registered. Crediting initial balances...`);
+      console.log(`User ${name} (${email}) (#${id}) registered. Crediting initial balances...`);
 
-      // 2. Credit initial balances ($100,000 USD and 10 BTC)
+      // 3. Credit initial balances ($100,000 USD and 10 BTC)
       const outboxPoller = this.engineService.getOutboxPoller();
       const initialUsd = 100000n * this.scale;
       const initialBtc = 10n * this.scale;
@@ -38,8 +44,9 @@ export class AuthService {
       await outboxPoller.createDepositOrWithdrawal(id, 'USDT', initialUsd, 'DEPOSIT');
       await outboxPoller.createDepositOrWithdrawal(id, 'BTC', initialBtc, 'DEPOSIT');
 
-      return { success: true, userId: id, name };
+      return { success: true, userId: id, email, name };
     } catch (err) {
+      if (err instanceof ConflictException) throw err;
       console.error('Error in register:', err);
       throw new ConflictException('Failed to register user');
     } finally {
@@ -47,10 +54,10 @@ export class AuthService {
     }
   }
 
-  public async login(id: number, passwordHash: string): Promise<any> {
+  public async login(email: string, passwordHash: string): Promise<any> {
     const pgClient = this.engineService.getPgClient();
     const pool = pgClient.getPool();
-    const res = await pool.query('SELECT id, name, password_hash FROM users WHERE id = $1', [id]);
+    const res = await pool.query('SELECT id, email, name, password_hash FROM users WHERE email = $1', [email]);
 
     if (res.rows.length === 0) {
       throw new UnauthorizedException('Invalid credentials');
@@ -62,13 +69,14 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const payload = { userId: user.id, username: user.name };
+    const payload = { userId: user.id, email: user.email, username: user.name };
     const token = this.jwtService.sign(payload);
 
     return {
       accessToken: token,
       user: {
         id: user.id,
+        email: user.email,
         name: user.name,
       },
     };

@@ -36,6 +36,17 @@ export class PgClient {
         if (!defaultValue || !defaultValue.includes('nextval')) {
           console.log('Recreating users table to support auto-incrementing IDs...');
           await client.query('DROP TABLE IF EXISTS users CASCADE;');
+        } else {
+          // Check if email column exists, if not drop to recreate
+          const emailCheck = await client.query(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'users' AND column_name = 'email'
+          `);
+          if (emailCheck.rows.length === 0) {
+            console.log('Recreating users table to support email columns...');
+            await client.query('DROP TABLE IF EXISTS users CASCADE;');
+          }
         }
       }
 
@@ -43,12 +54,11 @@ export class PgClient {
       await client.query(`
         CREATE TABLE IF NOT EXISTS users (
           id SERIAL PRIMARY KEY,
+          email VARCHAR(255) UNIQUE NOT NULL,
           name VARCHAR(100) DEFAULT 'User',
-          password_hash VARCHAR(255)
+          password_hash VARCHAR(255) NOT NULL
         );
       `);
-      // Ensure column exists if table was already created
-      await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);');
 
       // 2. Create wallet_balances table
       await client.query(`

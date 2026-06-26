@@ -65,10 +65,11 @@ export interface LiveSlice {
   isLive: boolean;
   isLiveConnected: boolean;
   token: string | null;
-  currentUser: { id: number; name: string } | null;
+  currentUser: { id: number; name: string; email: string } | null;
   setIsLive: (isLive: boolean) => void;
   setLiveConnected: (connected: boolean) => void;
-  setCurrentUser: (user: { id: number; name: string } | null, token: string | null) => void;
+  setCurrentUser: (user: { id: number; name: string; email: string } | null, token: string | null) => void;
+  hydrateAuth: () => void;
 }
 
 export type StoreState = OrderBookSlice & TradeHistorySlice & LiquidationSlice & WalletSlice & SystemSlice & OrderFormSlice & LiveSlice;
@@ -143,5 +144,29 @@ export const useStore = create<StoreState>((set) => ({
   currentUser: null,
   setIsLive: (isLive) => set({ isLive }),
   setLiveConnected: (connected) => set({ isLiveConnected: connected }),
-  setCurrentUser: (user, token) => set({ currentUser: user, token }),
+  setCurrentUser: (user, token) => {
+    if (typeof window !== "undefined") {
+      if (token && user) {
+        localStorage.setItem("apextrade_token", token);
+        localStorage.setItem("apextrade_user", JSON.stringify(user));
+      } else {
+        localStorage.removeItem("apextrade_token");
+        localStorage.removeItem("apextrade_user");
+      }
+    }
+    set({ currentUser: user, token });
+  },
+  hydrateAuth: () => {
+    if (typeof window !== "undefined") {
+      const storedToken = localStorage.getItem("apextrade_token");
+      const storedUser = localStorage.getItem("apextrade_user");
+      if (storedToken && storedUser) {
+        try {
+          set({ token: storedToken, currentUser: JSON.parse(storedUser) });
+        } catch (e) {
+          console.error("Failed to parse stored user", e);
+        }
+      }
+    }
+  },
 }));
