@@ -8,6 +8,7 @@ import { TradeHistoryList } from "../components/TradeHistoryList";
 import { TradingViewChart } from "../components/TradingViewChart";
 import { OrderBook2D } from "../components/OrderBook2D";
 import { MockMarketGenerator } from "../utils/mockGenerator";
+import { wsClient } from "../utils/websocket";
 import { useStore } from "../store/useStore";
 import { Shield, Cpu, RefreshCw, BarChart2 } from "lucide-react";
 
@@ -49,16 +50,38 @@ export default function TerminalPage() {
   const trades = useStore((state) => state.trades);
   const whaleTrades = trades.filter((t) => t.quantity > 1.5).slice(0, 3);
 
-  // Inicializa o gerador de dados de mercado em alta frequência no cliente
+  const isLive = useStore((state) => state.isLive);
+  const token = useStore((state) => state.token);
+
+  // Inicializa o estado montado
   useEffect(() => {
     setMounted(true);
-    const generator = new MockMarketGenerator();
-    generator.start();
+  }, []);
+
+  // Alterna entre Mock simulator e Live websocket connection
+  useEffect(() => {
+    if (!mounted) return;
+
+    let generator: MockMarketGenerator | null = null;
+
+    if (!isLive) {
+      generator = new MockMarketGenerator();
+      generator.start();
+    } else {
+      if (token) {
+        wsClient.connect(token);
+      } else {
+        wsClient.disconnect();
+      }
+    }
 
     return () => {
-      generator.stop();
+      if (generator) {
+        generator.stop();
+      }
+      wsClient.disconnect();
     };
-  }, []);
+  }, [mounted, isLive, token]);
 
   if (!mounted) {
     return <div className="min-h-screen w-full bg-[#030303]" />;

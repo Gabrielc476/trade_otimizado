@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useStore, TradeEvent } from "../store/useStore";
 import { TrendingUp, TrendingDown, ArrowRight } from "lucide-react";
+import { wsClient } from "../utils/websocket";
 
 export const OrderEntryForm: React.FC = () => {
   const [side, setSide] = useState<0 | 1>(0); // 0 = COMPRA, 1 = VENDA
@@ -19,6 +20,8 @@ export const OrderEntryForm: React.FC = () => {
     selectedQuantity,
     setSelectedPrice,
     setSelectedQuantity,
+    isLive,
+    isLiveConnected,
   } = useStore();
 
   const [notification, setNotification] = useState<{ text: string; type: "success" | "error" } | null>(null);
@@ -82,6 +85,36 @@ export const OrderEntryForm: React.FC = () => {
     }
     if (orderType === "LIMIT" && (isNaN(p) || p <= 0)) {
       showNotification("Preço inválido.", "error");
+      return;
+    }
+
+    if (isLive) {
+      if (!isLiveConnected) {
+        showNotification("Erro: WebSocket desconectado do motor real.", "error");
+        return;
+      }
+      
+      // Verify balance limits on the client side before dispatching
+      if (side === 0) {
+        const totalCost = q * p;
+        if (usdBalance < totalCost) {
+          showNotification("Saldo USD insuficiente.", "error");
+          return;
+        }
+      } else {
+        if (btcBalance < q) {
+          showNotification("Saldo BTC insuficiente.", "error");
+          return;
+        }
+      }
+
+      const wsSide = side === 0 ? 1 : 2; // 1 = BUY, 2 = SELL in engine enums
+      const orderId = wsClient.placeOrder(wsSide, orderType, p, q);
+      if (orderId !== -1) {
+        showNotification(`Ordem enviada ao motor: ID #${orderId}`, "success");
+      } else {
+        showNotification("Falha ao enviar ordem via WebSocket.", "error");
+      }
       return;
     }
 

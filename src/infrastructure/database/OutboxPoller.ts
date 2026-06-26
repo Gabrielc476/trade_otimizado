@@ -69,10 +69,26 @@ export class OutboxPoller {
           this.driver.sendWithdraw(user_id, asset, amountBigInt);
         }
 
-        // 2. Mark outbox event as PROCESSED in the DB
+        // 2. Update wallet_balances in the DB
+        if (event_type === 'DEPOSIT') {
+          await client.query(`
+            INSERT INTO wallet_balances (user_id, asset, available, locked)
+            VALUES ($1, $2, $3, 0)
+            ON CONFLICT (user_id, asset)
+            DO UPDATE SET available = wallet_balances.available + EXCLUDED.available
+          `, [user_id, asset, amount]);
+        } else if (event_type === 'WITHDRAW') {
+          await client.query(`
+            UPDATE wallet_balances
+            SET available = available - $3
+            WHERE user_id = $1 AND asset = $2
+          `, [user_id, asset, amount]);
+        }
+
+        // 3. Mark outbox event as PROCESSED in the DB
         await client.query("UPDATE outbox SET status = 'PROCESSED' WHERE id = $1", [id]);
 
-        // 3. Mark the corresponding transaction as COMPLETED in the DB
+        // 4. Mark the corresponding transaction as COMPLETED in the DB
         // We match by user_id, asset, amount, and type for simplicity of this flow
         await client.query(
           `UPDATE transactions 

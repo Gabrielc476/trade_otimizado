@@ -7,6 +7,7 @@
     "test": "jest",
     "test:cov": "jest --coverage",
     "benchmark": "npx ts-node src/benchmarks/engine.benchmark.ts",
+    "start:server": "npx ts-node src/infrastructure/server/main.ts",
     "dev:frontend": "npm run dev --prefix src/frontend",
     "build:frontend": "npm run build --prefix src/frontend",
     "start:frontend": "npm start --prefix src/frontend",
@@ -25,6 +26,7 @@
   },
   "homepage": "https://github.com/Gabrielc476/trade_otimizado#readme",
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^26.0.1",
     "@types/pg": "^8.20.0",
@@ -34,6 +36,16 @@
     "typescript": "^6.0.3"
   },
   "dependencies": {
-    "pg": "^8.22.0"
+    "@nestjs/common": "^11.1.27",
+    "@nestjs/core": "^11.1.27",
+    "@nestjs/jwt": "^11.0.2",
+    "@nestjs/platform-express": "^11.1.27",
+    "@nestjs/platform-socket.io": "^11.1.27",
+    "@nestjs/websockets": "^11.1.27",
+    "bcrypt": "^6.0.0",
+    "pg": "^8.22.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "socket.io": "^4.8.3"
   }
 }

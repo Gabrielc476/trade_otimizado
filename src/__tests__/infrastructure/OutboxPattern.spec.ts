@@ -100,13 +100,20 @@ describe('OutboxPattern', () => {
     expect(mockDriver.sendWithdraw).toHaveBeenCalledWith(2, 'USDT', 100000n);
 
     // Verify database updates and transactions
-    expect(mockClient.query).toHaveBeenCalledTimes(7);
+    expect(mockClient.query).toHaveBeenCalledTimes(9);
     expect(mockClient.query.mock.calls[0][0]).toBe('BEGIN');
     expect(mockClient.query.mock.calls[1][0]).toContain('SELECT id, event_type, user_id, asset, amount');
-    expect(mockClient.query.mock.calls[2][0]).toBe("UPDATE outbox SET status = 'PROCESSED' WHERE id = $1");
-    expect(mockClient.query.mock.calls[2][1]).toEqual([10]);
-    expect(mockClient.query.mock.calls[4][0]).toBe("UPDATE outbox SET status = 'PROCESSED' WHERE id = $1");
-    expect(mockClient.query.mock.calls[4][1]).toEqual([11]);
-    expect(mockClient.query.mock.calls[6][0]).toBe('COMMIT');
+    
+    // Row 10 (DEPOSIT)
+    expect(mockClient.query.mock.calls[2][0]).toContain('INSERT INTO wallet_balances');
+    expect(mockClient.query.mock.calls[3][0]).toBe("UPDATE outbox SET status = 'PROCESSED' WHERE id = $1");
+    expect(mockClient.query.mock.calls[3][1]).toEqual([10]);
+    
+    // Row 11 (WITHDRAW)
+    expect(mockClient.query.mock.calls[5][0]).toContain('UPDATE wallet_balances');
+    expect(mockClient.query.mock.calls[6][0]).toBe("UPDATE outbox SET status = 'PROCESSED' WHERE id = $1");
+    expect(mockClient.query.mock.calls[6][1]).toEqual([11]);
+    
+    expect(mockClient.query.mock.calls[8][0]).toBe('COMMIT');
   });
 });

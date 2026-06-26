@@ -61,7 +61,17 @@ export interface OrderFormSlice {
   setSelectedQuantity: (qty: string | null) => void;
 }
 
-export type StoreState = OrderBookSlice & TradeHistorySlice & LiquidationSlice & WalletSlice & SystemSlice & OrderFormSlice;
+export interface LiveSlice {
+  isLive: boolean;
+  isLiveConnected: boolean;
+  token: string | null;
+  currentUser: { id: number; name: string } | null;
+  setIsLive: (isLive: boolean) => void;
+  setLiveConnected: (connected: boolean) => void;
+  setCurrentUser: (user: { id: number; name: string } | null, token: string | null) => void;
+}
+
+export type StoreState = OrderBookSlice & TradeHistorySlice & LiquidationSlice & WalletSlice & SystemSlice & OrderFormSlice & LiveSlice;
 
 export const useStore = create<StoreState>((set) => ({
   // Order Book
@@ -125,4 +135,13 @@ export const useStore = create<StoreState>((set) => ({
   selectedQuantity: null,
   setSelectedPrice: (price) => set({ selectedPrice: price }),
   setSelectedQuantity: (qty) => set({ selectedQuantity: qty }),
+
+  // Live Trading Connection Slice
+  isLive: false,
+  isLiveConnected: false,
+  token: null,
+  currentUser: null,
+  setIsLive: (isLive) => set({ isLive }),
+  setLiveConnected: (connected) => set({ isLiveConnected: connected }),
+  setCurrentUser: (user, token) => set({ currentUser: user, token }),
 }));

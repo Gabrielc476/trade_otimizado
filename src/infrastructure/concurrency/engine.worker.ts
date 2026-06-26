@@ -116,6 +116,7 @@ const journalingPort = new SwitchableJournalingPort(rawJournalingPort);
 // Create the MatchingEngine and Use Cases via StaticFactory
 const symbol = `${assets[0]}/${assets[1]}`;
 const {
+  engine,
   placeOrderUseCase,
   cancelOrderUseCase,
   depositUseCase,
@@ -169,5 +170,105 @@ if (walPath) {
 const messageAdapter = new WorkerThreadMessageAdapter(loopUseCase);
 messageAdapter.start();
 
+// Helper functions for BST traversal in RedBlackTree
+function getSuccessor(node: any, nil: any): any {
+  if (node.right !== nil) {
+    let current = node.right;
+    while (current.left !== nil) {
+      current = current.left;
+    }
+    return current;
+  }
+  let p = node.parent;
+  let current = node;
+  while (p !== nil && current === p.right) {
+    current = p;
+    p = p.parent;
+  }
+  return p === nil ? null : p;
+}
+
+function getPredecessor(node: any, nil: any): any {
+  if (node.left !== nil) {
+    let current = node.left;
+    while (current.right !== nil) {
+      current = current.right;
+    }
+    return current;
+  }
+  let p = node.parent;
+  let current = node;
+  while (p !== nil && current === p.left) {
+    current = p;
+    p = p.parent;
+  }
+  return p === nil ? null : p;
+}
+
+// L2 Depth Aggregator (50ms)
+setInterval(() => {
+  // Pre-allocate Float64Array
+  // Index 0: bids count
+  // Index 1: asks count
+  // Indices 2-21: bid prices (up to 20)
+  // Indices 22-41: bid quantities (up to 20)
+  // Indices 42-61: ask prices (up to 20)
+  // Indices 62-81: ask quantities (up to 20)
+  const l2Data = new Float64Array(82);
+
+  const nil = engine.bids.getNIL();
+
+  // 1. Collect Bids (Highest to Lowest price)
+  let bidCount = 0;
+  let currentBidNode = engine.bids.getMaxNode();
+  while (currentBidNode !== null && currentBidNode !== nil && bidCount < 20) {
+    let totalQty: bigint = 0n;
+    let currentOrder = currentBidNode.list.head;
+    while (currentOrder !== null) {
+      totalQty += (BigInt(currentOrder.qty) - BigInt(currentOrder.filledQty));
+      currentOrder = currentOrder.next;
+    }
+
+    if (totalQty > 0n) {
+      l2Data[2 + bidCount] = Number(currentBidNode.price) / 100000000;
+      l2Data[22 + bidCount] = Number(totalQty) / 100000000;
+      bidCount++;
+    }
+
+    currentBidNode = getPredecessor(currentBidNode, nil);
+  }
+  l2Data[0] = bidCount;
+
+  // 2. Collect Asks (Lowest to Highest price)
+  let askCount = 0;
+  let currentAskNode = engine.asks.getMinNode();
+  while (currentAskNode !== null && currentAskNode !== nil && askCount < 20) {
+    let totalQty: bigint = 0n;
+    let currentOrder = currentAskNode.list.head;
+    while (currentOrder !== null) {
+      totalQty += (BigInt(currentOrder.qty) - BigInt(currentOrder.filledQty));
+      currentOrder = currentOrder.next;
+    }
+
+    if (totalQty > 0n) {
+      l2Data[42 + askCount] = Number(currentAskNode.price) / 100000000;
+      l2Data[62 + askCount] = Number(totalQty) / 100000000;
+      askCount++;
+    }
+
+    currentAskNode = getSuccessor(currentAskNode, nil);
+  }
+  l2Data[1] = askCount;
+
+  // Transfer the buffer using postMessage Transferable Objects
+  parentPort!.postMessage(
+    {
+      type: 'L2_UPDATE',
+      data: l2Data,
+    },
+    [l2Data.buffer]
+  );
+}, 50);
+
 // Notify the parent thread that the worker is ready
-parentPort.postMessage({ type: 'READY' });
+parentPort!.postMessage({ type: 'READY' });

@@ -29,9 +29,12 @@ export class PgClient {
       await client.query(`
         CREATE TABLE IF NOT EXISTS users (
           id INT PRIMARY KEY,
-          name VARCHAR(100) DEFAULT 'User'
+          name VARCHAR(100) DEFAULT 'User',
+          password_hash VARCHAR(255)
         );
       `);
+      // Ensure column exists if table was already created
+      await client.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);');
 
       // 2. Create wallet_balances table
       await client.query(`
