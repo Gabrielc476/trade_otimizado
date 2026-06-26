@@ -139,12 +139,12 @@ export const TradingViewChart: React.FC = () => {
 
   return (
     <div className="bg-zinc-950/20 border border-zinc-900/35 backdrop-blur-sm rounded-xl p-4 flex flex-col gap-2 shadow-xl">
-      <div className="flex items-center justify-between text-zinc-400 text-[10px] font-mono tracking-wider mb-2">
+      <div className="flex items-center justify-between text-zinc-400 text-xs font-mono tracking-wider mb-2 font-bold">
         <div className="flex items-center gap-2">
-          <LineChart className="h-3.5 w-3.5 text-zinc-500" />
+          <LineChart className="h-4 w-4 text-zinc-500" />
           <span>GRÁFICO DE NEGOCIAÇÃO (BTC/USD) - 1m</span>
         </div>
-        <span className="text-[9px] text-zinc-600 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800/50">
+        <span className="text-[10px] text-zinc-500 bg-zinc-900 px-2.5 py-0.5 rounded border border-zinc-800/50">
           REAL-TIME GRAPHICS
         </span>
       </div>

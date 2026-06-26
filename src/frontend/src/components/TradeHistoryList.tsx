@@ -10,14 +10,14 @@ export const TradeHistoryList: React.FC = () => {
   const rowVirtualizer = useVirtualizer({
     count: trades.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 24, // Altura exata de cada linha em pixels
+    estimateSize: () => 28, // Altura exata de cada linha em pixels (aumentada de 24 para acomodar fonte maior)
     overscan: 5,            // Itens adicionais renderizados fora da janela para suavizar rolagem
   });
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Cabeçalho da Tabela */}
-      <div className="grid grid-cols-3 px-3 py-1.5 text-[9px] font-mono text-zinc-500 border-b border-zinc-900 bg-black/30 tracking-wider">
+      <div className="grid grid-cols-3 px-3 py-2 text-xs font-mono text-zinc-500 border-b border-zinc-900 bg-black/30 tracking-wider font-bold">
         <div>HORÁRIO</div>
         <div className="text-right">PREÇO (USD)</div>
         <div className="text-right">VOLUME (BTC)</div>
@@ -29,7 +29,7 @@ export const TradeHistoryList: React.FC = () => {
         className="flex-1 overflow-y-auto overflow-x-hidden border border-zinc-900/50 rounded bg-black/15 scrollbar-thin scrollbar-thumb-zinc-900 scrollbar-track-transparent"
       >
         {trades.length === 0 ? (
-          <div className="h-full flex items-center justify-center text-zinc-600 text-[10px] font-mono">
+          <div className="h-full flex items-center justify-center text-zinc-600 text-xs font-mono">
             AGUARDANDO NEGÓCIOS...
           </div>
         ) : (
@@ -44,7 +44,7 @@ export const TradeHistoryList: React.FC = () => {
               return (
                 <div
                   key={trade.id}
-                  className="absolute top-0 left-0 w-full grid grid-cols-3 items-center px-3 text-[10px] font-mono border-b border-zinc-900/30 hover:bg-zinc-900/10 transition-colors"
+                  className="absolute top-0 left-0 w-full grid grid-cols-3 items-center px-3 text-xs font-mono border-b border-zinc-900/30 hover:bg-zinc-900/10 transition-colors"
                   style={{
                     height: `${virtualRow.size}px`,
                     transform: `translateY(${virtualRow.start}px)`,

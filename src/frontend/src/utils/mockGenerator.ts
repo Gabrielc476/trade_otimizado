@@ -1,9 +1,10 @@
-import { useStore, PriceLevel, TradeEvent } from "../store/useStore";
+import { useStore, PriceLevel, TradeEvent, LiquidationEvent } from "../store/useStore";
 
 export class MockMarketGenerator {
   private intervalId: NodeJS.Timeout | null = null;
   private midPrice = 65000.0;
   private tradeIdCounter = 1;
+  private liquidationIdCounter = 1;
   private targetVolatility = 0.2;
   private currentVolatility = 0.2;
 
@@ -26,19 +27,32 @@ export class MockMarketGenerator {
       }
       this.currentVolatility += (this.targetVolatility - this.currentVolatility) * 0.05;
 
-      // 3. Atualiza as métricas do sistema
+      // 3. Simula flutuação suave do Open Interest (OI em milhões de USD)
+      // O OI aumenta de forma correlacionada à volatilidade (mais alavancagem / pânico)
+      const targetOI = 140.0 + this.currentVolatility * 180.0;
+      const currentOI = useStore.getState().openInterest;
+      const nextOI = currentOI + (targetOI - currentOI) * 0.01 + (Math.random() - 0.5) * 1.5;
+      const openInterest = Number(Math.max(100.0, Math.min(nextOI, 380.0)).toFixed(1));
+
+      // 4. Atualiza as métricas do sistema
       const baseRps = 70000;
       const rpsVariance = (Math.random() - 0.5) * 15000;
       const rps = Math.floor((baseRps + rpsVariance) * (1.0 + this.currentVolatility * 0.5));
-      useStore.getState().setSystemMetrics(this.currentVolatility, rps);
+      useStore.getState().setSystemMetrics(this.currentVolatility, rps, openInterest);
 
-      // 4. Regenera o livro de ofertas (Order Book L2)
+      // 5. Regenera o livro de ofertas (Order Book L2)
       this.generateSnapshot();
 
-      // 5. Gera trades ocasionais
+      // 6. Gera trades ocasionais
       const tradeChance = 0.1 + this.currentVolatility * 0.3; // Mais volátil = mais trades
       if (Math.random() < tradeChance) {
         this.generateTrade();
+      }
+
+      // 7. Gera eventos de liquidação esporádicos (especialmente em alta volatilidade)
+      const liqChance = 0.004 + this.currentVolatility * 0.035;
+      if (Math.random() < liqChance) {
+        this.generateLiquidation();
       }
     }, 50); // Atualizações a cada 50ms (20 vezes por segundo!)
   }
@@ -101,20 +115,38 @@ export class MockMarketGenerator {
     useStore.getState().addTrade(trade);
 
     // Se for uma transação com impacto financeiro na nossa carteira fictícia
-    // Simula a execução do nosso próprio saldo ocasionalmente se os preços coincidirem com ordens enviadas
     const state = useStore.getState();
     if (side === 0) {
-      // Alguém comprou. Se fomos nós (simulação):
       const usdDiff = quantity * price;
       if (state.usdBalance > usdDiff && Math.random() < 0.05) {
         state.updateBalances(state.usdBalance - usdDiff, state.btcBalance + quantity);
       }
     } else {
-      // Alguém vendeu.
       if (state.btcBalance > quantity && Math.random() < 0.05) {
         const usdDiff = quantity * price;
         state.updateBalances(state.usdBalance + usdDiff, state.btcBalance - quantity);
       }
     }
+  }
+
+  private generateLiquidation() {
+    const side: 0 | 1 = Math.random() > 0.5 ? 0 : 1; // 0 = shorts liquidando (compra), 1 = longs liquidando (venda)
+    const quantity = 0.4 + Math.random() * 3.5; // De 0.4 a 3.9 BTC liquidado
+    const spread = 2.0 + this.currentVolatility * 15.0;
+    
+    // Liquidações ocorrem ligeiramente fora do spread ativo (varredura de stops)
+    const offset = (1.5 + Math.random() * 6.0) * (this.currentVolatility + 0.5);
+    const price = side === 0 ? this.midPrice + spread / 2 + offset : this.midPrice - spread / 2 - offset;
+
+    const liq: LiquidationEvent = {
+      id: this.liquidationIdCounter++,
+      price: Number(price.toFixed(2)),
+      quantity: Number(quantity.toFixed(4)),
+      side,
+      timestamp: Date.now(),
+    };
+
+    // Adiciona a liquidação à store
+    useStore.getState().addLiquidation(liq);
   }
 }

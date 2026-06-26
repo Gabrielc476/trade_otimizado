@@ -14,6 +14,14 @@ export interface TradeEvent {
   timestamp: number;
 }
 
+export interface LiquidationEvent {
+  id: number;
+  price: number;
+  quantity: number;
+  side: 0 | 1; // 0 = COMPRA (Shorts liquidando - Verde), 1 = VENDA (Longs liquidando - Vermelho)
+  timestamp: number;
+}
+
 export interface OrderBookSlice {
   bids: PriceLevel[];
   asks: PriceLevel[];
@@ -26,6 +34,11 @@ export interface TradeHistorySlice {
   addTrade: (trade: TradeEvent) => void;
 }
 
+export interface LiquidationSlice {
+  liquidations: LiquidationEvent[];
+  addLiquidation: (liq: LiquidationEvent) => void;
+}
+
 export interface WalletSlice {
   usdBalance: number;
   btcBalance: number;
@@ -35,10 +48,20 @@ export interface WalletSlice {
 export interface SystemSlice {
   volatility: number; // 0.0 a 1.0
   rps: number;
-  setSystemMetrics: (volatility: number, rps: number) => void;
+  openInterest: number; // Em milhões de USD (ex: 250.5)
+  active3DMode: "CVD" | "RIDGES" | "TUNNEL" | "LIQUIDATIONS";
+  setSystemMetrics: (volatility: number, rps: number, openInterest?: number) => void;
+  setActive3DMode: (mode: "CVD" | "RIDGES" | "TUNNEL" | "LIQUIDATIONS") => void;
 }
 
-export type StoreState = OrderBookSlice & TradeHistorySlice & WalletSlice & SystemSlice;
+export interface OrderFormSlice {
+  selectedPrice: string | null;
+  selectedQuantity: string | null;
+  setSelectedPrice: (price: string | null) => void;
+  setSelectedQuantity: (qty: string | null) => void;
+}
+
+export type StoreState = OrderBookSlice & TradeHistorySlice & LiquidationSlice & WalletSlice & SystemSlice & OrderFormSlice;
 
 export const useStore = create<StoreState>((set) => ({
   // Order Book
@@ -60,7 +83,6 @@ export const useStore = create<StoreState>((set) => ({
   trades: [],
   addTrade: (trade) =>
     set((state) => {
-      // Limita o histórico de trades a 500 itens para evitar vazamento de memória DOM
       const newTrades = [trade, ...state.trades];
       if (newTrades.length > 500) {
         newTrades.pop();
@@ -68,13 +90,39 @@ export const useStore = create<StoreState>((set) => ({
       return { trades: newTrades };
     }),
 
+  // Liquidation History
+  liquidations: [],
+  addLiquidation: (liq) =>
+    set((state) => {
+      // Limita o histórico de liquidações a 50 para a constelação 3D
+      const newLiqs = [liq, ...state.liquidations];
+      if (newLiqs.length > 50) {
+        newLiqs.pop();
+      }
+      return { liquidations: newLiqs };
+    }),
+
   // Wallet
   usdBalance: 150000.0,
   btcBalance: 2.458319,
   updateBalances: (usd, btc) => set({ usdBalance: usd, btcBalance: btc }),
 
-  // System Metrics
+  // System Metrics & 3D Control
   volatility: 0.15,
   rps: 75240,
-  setSystemMetrics: (volatility, rps) => set({ volatility, rps }),
+  openInterest: 185.5, // Padrão: 185.5 milhões de USD
+  active3DMode: "CVD", // Padrão do Radar: CVD Vessel
+  setSystemMetrics: (volatility, rps, openInterest) =>
+    set((state) => ({
+      volatility,
+      rps,
+      openInterest: openInterest !== undefined ? openInterest : state.openInterest,
+    })),
+  setActive3DMode: (mode) => set({ active3DMode: mode }),
+
+  // Order Form Selection
+  selectedPrice: null,
+  selectedQuantity: null,
+  setSelectedPrice: (price) => set({ selectedPrice: price }),
+  setSelectedQuantity: (qty) => set({ selectedQuantity: qty }),
 }));
