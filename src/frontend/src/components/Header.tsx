@@ -16,7 +16,7 @@ export const Header: React.FC = () => {
   const setCurrentUser = useStore((state) => state.setCurrentUser);
 
   // Auth form state
-  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(!currentUser);
   const [isRegistering, setIsRegistering] = useState(false);
   const [userId, setUserId] = useState("");
   const [username, setUsername] = useState("");
